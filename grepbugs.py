@@ -98,10 +98,10 @@ for row in rows:
 			ext    = proc.communicate()
 
 			result = ''
-			filter = '"' + srcdir + '.*(' + str(ext[0]) + ')$"'
+			filter = ".*(" + str(ext[0]) + ")$"
 			#print filter
-			#call(["echo", csearch, "-f", filter, '"' + str(data[i]["regex"]) + '"']) 
-			proc   = subprocess.Popen([csearch, "-i", "-f", filter, '"' + str(data[i]["regex"]) + '"'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			#call(['echo', csearch, "-f", filter, '"' + str(data[i]["regex"]) + '"']) 
+			proc   = subprocess.Popen([csearch, "-i", "-f", filter, data[i]["regex"]], stdout=subprocess.PIPE)
 			result = proc.communicate()
 
 			if len(result[0]):
