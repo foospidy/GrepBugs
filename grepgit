@@ -1,0 +1,16 @@
+#!/bin/bash
+
+read -p "Enter github account: " account
+
+mkdir src/$account
+
+wget -N -P src/$account https://api.github.com/users/$account/repos
+
+for f in `ls src/$account`;
+do
+	if [ -d "src/$account/$f" ];
+	then
+		python grepbugs.py src/$account/$f $account.$f
+	fi
+done;
+

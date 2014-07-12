@@ -1,0 +1,3 @@
+#!/bin/bash
+cloc --show-ext | grep $1 | awk '{print $1}' | tr "\n" "|" | sed -e 's/|$//'
+

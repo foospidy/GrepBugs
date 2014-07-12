@@ -1,0 +1,13 @@
+password
+secret
+apikey
+api_key
+strcpy
+_GET
+xor
+SHA-1
+DES
+MD5
+Cipher.newInstance
+sun.misc.Unsafe
+X509CertificateValidationMode.None
