@@ -6,6 +6,8 @@ mkdir src/$account
 
 wget -N -P src/$account https://api.github.com/users/$account/repos
 
+python getgit.py src/$account
+
 for f in `ls src/$account`;
 do
 	if [ -d "src/$account/$f" ];

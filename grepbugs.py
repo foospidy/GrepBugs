@@ -20,7 +20,7 @@ grepext   = os.path.dirname(os.path.abspath(__file__)) + '/grepext'
 srcdir   = sys.argv[1]
 
 if 3 == len(sys.argv):
-	htmlfile = os.path.dirname(os.path.abspath(__file__)) + '/out/' + sys.argv[2] + '.index.html'
+	htmlfile = os.path.dirname(os.path.abspath(__file__)) + '/out/' + sys.argv[2] + '.html'
 
 try:
 	db  = lite.connect(dbfile)
