@@ -10,7 +10,7 @@ these scripts depend on and require
 The regular expressions used for grepping are sourced from http://www.grepbugs.com
 
 Usage:
-python grepbugs.py <directory containing source code>
+python grepbugs.py &lt;directory containing source code&gt;
 
 This can also be used to scan entire github accounts by specifying the account username with the grepgit script
 
