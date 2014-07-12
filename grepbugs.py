@@ -101,7 +101,7 @@ for row in rows:
 			filter = '"' + srcdir + '.*(' + str(ext[0]) + ')$"'
 			#print filter
 			#call(["echo", csearch, "-f", filter, '"' + str(data[i]["regex"]) + '"']) 
-			proc   = subprocess.Popen([csearch, "-f", filter, '"' + str(data[i]["regex"]) + '"'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+			proc   = subprocess.Popen([csearch, "-i", "-f", filter, '"' + str(data[i]["regex"]) + '"'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 			result = proc.communicate()
 
 			if len(result[0]):
