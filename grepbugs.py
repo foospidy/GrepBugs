@@ -6,7 +6,6 @@ import urllib2
 import json
 import sqlite3 as lite
 from subprocess import call
-from subprocess import check_output
 import subprocess
 import cgi
 
