@@ -80,6 +80,7 @@ h = 'ICAgX19fX19fICAgICAgICAgICAgICAgIF9fX18KICAvIF9fX18vX19fX19fXyAgX19fXyAgLyB
 
 o = open(htmlfile, 'w')
 o.write("<pre>\n" + h.decode('base64') + "</pre>")
+o.write("<pre>\n" + os.path.basename(srcdir) + "</pre>")
 o.write("<pre>\n" + str(clocout).replace("\n", "<br>") + "</pre>")
 o.close()
 
