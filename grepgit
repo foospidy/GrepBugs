@@ -1,6 +1,11 @@
 #!/bin/bash
 
-read -p "Enter github account: " account
+if [ -z $1 ]
+then
+	read -p "Enter github account: " account
+else
+	$account = $1;
+fi
 
 mkdir src/$account
 
