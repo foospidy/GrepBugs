@@ -9,7 +9,7 @@ fi
 
 mkdir src/$account
 
-wget -N -P src/$account https://api.github.com/users/$account/repos
+wget -N -P src/$account https://api.github.com/users/$account/repos?per_page=100
 
 python getgit.py src/$account
 
