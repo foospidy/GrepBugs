@@ -122,7 +122,7 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 					ext        = proc.communicate()	
 					extarray   = str(ext[0]).split("\n")
 					extensions = []
-					
+
 					for ii in range(0, len(extarray)):
 						lang = str(extarray[ii]).split("->")
 						if len(lang) > 1:
@@ -136,17 +136,19 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 
 					if len(result[0]):
 						# update databse with new results info
-						params  = [scan_id, data[i]["language"], data[i]["id"], data[i]["regex"], data[i]["description"]]
-						cur.execute("INSERT INTO results (scan_id, language, regex_id, regex_text, description) VALUES (?, ?, ?, ?, ?);", params)
+						result_uuid = str(uuid.uuid1())
+						params      = [scan_id, scan_uuid, result_uuid, data[i]["language"], data[i]["id"], data[i]["regex"], data[i]["description"]]
+						cur.execute("INSERT INTO results (scan_id, scan_uuid, uuid, language, regex_id, regex_text, description) VALUES (?, ?, ?, ?, ?, ?, ?);", params)
 						result_id = cur.lastrowid
+
 						db.commit()
 
 						perline = str(result[0]).split("\n")
 						for r in range(0, len(perline) - 1):
 							rr = str(perline[r]).replace(basedir, '').split(':', 1)
 							# update databse with new results_detail info
-							params  = [result_id, rr[0], str(rr[1]).strip()]
-							cur.execute("INSERT INTO results_detail (result_id, file, code) VALUES (?, ?, ?);", params)
+							params  = [result_id, result_uuid, rr[0], str(rr[1]).strip()]
+							cur.execute("INSERT INTO results_detail (result_id, result_uuid, file, code) VALUES (?, ?, ?, ?);", params)
 							db.commit()
 
 	params = [project_id]
