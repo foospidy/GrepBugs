@@ -255,7 +255,7 @@ def html_report(scan_id):
 		o.write("<pre>\n" + str(row[5]).replace("\n", "<br>") + "</pre>")
 		o.close()
 
-		cur.execute("SELECT b.language, b.regex_text, b.description, c.results_detail_id, c.file, c.code FROM scans a, results b, results_detail c WHERE a.scan_id=? AND a.scan_id=b.scan_id AND b.result_id=c.result_id ORDER BY b.language, b.regex_id, c.file;", params)
+		cur.execute("SELECT b.language, b.regex_text, b.description, c.result_detail_id, c.file, c.code FROM scans a, results b, results_detail c WHERE a.scan_id=? AND a.scan_id=b.scan_id AND b.result_id=c.result_id ORDER BY b.language, b.regex_id, c.file;", params)
 		rs       = cur.fetchall()
 		o        = open(htmlfile, 'a')
 		html     = ''
