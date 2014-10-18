@@ -139,7 +139,6 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 						result_id = str(uuid.uuid1())
 						params    = [result_id, scan_id, data[i]["language"], data[i]["id"], data[i]["regex"], data[i]["description"]]
 						cur.execute("INSERT INTO results (result_id, scan_id, language, regex_id, regex_text, description) VALUES (?, ?, ?, ?, ?, ?);", params)
-						result_id = cur.lastrowid
 
 						db.commit()
 
