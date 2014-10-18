@@ -24,9 +24,9 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 	"""
 	Perform a scan of local files
 	"""
-	scan_uuid = str(uuid.uuid1())
-	basedir   = os.path.dirname(os.path.abspath(__file__)) + '/' + srcdir.rstrip('/')
-	
+	scan_id = str(uuid.uuid1())
+	basedir = os.path.dirname(os.path.abspath(__file__)) + '/' + srcdir.rstrip('/')
+
 	try:
 		db  = lite.connect(dbfile)
 		cur = db.cursor()
@@ -68,13 +68,13 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 		project_id = row[0]
 
 	if True == newproject:
-		cur.execute("INSERT INTO projects (repo, account, project) VALUES (?, ?, ?);", params)
-		project_id = cur.lastrowid
+		project_id = str(uuid.uuid1())
+		params     = [project_id, repo, account, project]
+		cur.execute("INSERT INTO projects (project_id, repo, account, project) VALUES (?, ?, ?, ?);", params)
 
 	# update databse with new scan info
-	params  = [project_id, scan_uuid]
-	cur.execute("INSERT INTO scans (project_id, uuid) VALUES (?, ?);", params)
-	scan_id = cur.lastrowid
+	params  = [scan_id, project_id]
+	cur.execute("INSERT INTO scans (scan_id, project_id) VALUES (?, ?);", params)
 	db.commit()
 
 	# execute cloc
@@ -87,7 +87,7 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 
 	# execute clock again
 	call(["cloc", "--quiet", "-out=" + cloctxt, srcdir])
-	
+
 	# save output
 	f = open(cloctxt, 'r')
 	params = [f.read(), scan_id]
@@ -119,7 +119,7 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 					ext        = ''
 					extension  = ''
 					proc       = subprocess.Popen(["cloc", "--show-ext"], stdout=subprocess.PIPE)
-					ext        = proc.communicate()	
+					ext        = proc.communicate()
 					extarray   = str(ext[0]).split("\n")
 					extensions = []
 
@@ -136,9 +136,9 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 
 					if len(result[0]):
 						# update databse with new results info
-						result_uuid = str(uuid.uuid1())
-						params      = [scan_id, scan_uuid, result_uuid, data[i]["language"], data[i]["id"], data[i]["regex"], data[i]["description"]]
-						cur.execute("INSERT INTO results (scan_id, scan_uuid, uuid, language, regex_id, regex_text, description) VALUES (?, ?, ?, ?, ?, ?, ?);", params)
+						result_id = str(uuid.uuid1())
+						params    = [result_id, scan_id, data[i]["language"], data[i]["id"], data[i]["regex"], data[i]["description"]]
+						cur.execute("INSERT INTO results (result_id, scan_id, language, regex_id, regex_text, description) VALUES (?, ?, ?, ?, ?, ?);", params)
 						result_id = cur.lastrowid
 
 						db.commit()
@@ -147,8 +147,9 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 						for r in range(0, len(perline) - 1):
 							rr = str(perline[r]).replace(basedir, '').split(':', 1)
 							# update databse with new results_detail info
-							params  = [result_id, result_uuid, rr[0], str(rr[1]).strip()]
-							cur.execute("INSERT INTO results_detail (result_id, result_uuid, file, code) VALUES (?, ?, ?, ?);", params)
+							result_detail_id = str(uuid.uuid1())
+							params           = [result_detail_id, result_id, rr[0], str(rr[1]).strip()]
+							cur.execute("INSERT INTO results_detail (result_detail_id, result_id, file, code) VALUES (?, ?, ?, ?);", params)
 							db.commit()
 
 	params = [project_id]
@@ -157,7 +158,7 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 	db.close()
 
 	html_report(scan_id)
-	
+
 	return scan_id
 
 def repo_scan(repo, account):
@@ -210,7 +211,7 @@ def repo_scan(repo, account):
 
 			if True == do_scan:
 				account_folder = os.path.dirname(os.path.abspath(__file__)) + '/src/' + account
-	
+
 				if not os.path.exists(account_folder):
 					os.makedirs(account_folder)
 
@@ -236,14 +237,14 @@ def html_report(scan_id):
 	except lite.Error, e:
 		print 'Error connecting to db file'
 		sys.exit(1)
-	
+
 	html   = ''
 	h      = 'ICAgX19fX19fICAgICAgICAgICAgICAgIF9fX18KICAvIF9fX18vX19fX19fXyAgX19fXyAgLyBfXyApX18gIF9fX19fXyBfX19fX18KIC8gLyBfXy8gX19fLyBfIFwvIF9fIFwvIF9fICAvIC8gLyAvIF9fIGAvIF9fXy8KLyAvXy8gLyAvICAvICBfXy8gL18vIC8gL18vIC8gL18vIC8gL18vIChfXyAgKQpcX19fXy9fLyAgIFxfX18vIC5fX18vX19fX18vXF9fLF8vXF9fLCAvX19fXy8KICAgICAgICAgICAgICAvXy8gICAgICAgICAgICAgICAgL19fX18v'
 	params = [scan_id]
-	
+
 	cur.execute("SELECT a.repo, a.account, a.project, b.uuid, b.date_time, b.cloc_out FROM projects a, scans b WHERE a.project_id=b.project_id AND b.scan_id=? LIMIT 1;", params)
 	rows = cur.fetchall()
-	
+
 	for row in rows:
 		print 'writing report...'
 		htmlfile = os.path.dirname(os.path.abspath(__file__)) + '/out/' + row[0] + '.' + row[1] + '.' + row[2].replace("/", "_") + '.' + row[3] + '.html'
@@ -253,7 +254,7 @@ def html_report(scan_id):
 		o.write("<pre>\n" + "repo: " + row[0] + "\naccount: " + row[1] + "\nproject: " + row[2] + "\nscan id: " + row[3] + "\ndate: " + row[4] + "</pre>\n")
 		o.write("<pre>\n" + str(row[5]).replace("\n", "<br>") + "</pre>")
 		o.close()
-		
+
 		cur.execute("SELECT b.language, b.regex_text, b.description, c.results_detail_id, c.file, c.code FROM scans a, results b, results_detail c WHERE a.scan_id=? AND a.scan_id=b.scan_id AND b.result_id=c.result_id ORDER BY b.language, b.regex_id, c.file;", params)
 		rs       = cur.fetchall()
 		o        = open(htmlfile, 'a')
@@ -283,7 +284,7 @@ def html_report(scan_id):
 
 			else:
 				html += '<pre><span style="color:gray;">' + r[4] + ':</span> &nbsp; ' + cgi.escape(r[5]) + '</pre>' + "\n"
-			
+
 			count   += 1
 			language = r[0]
 			regex    = r[1]
