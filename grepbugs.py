@@ -278,11 +278,11 @@ def html_report(scan_id):
 				html += '<a name="' + str(r[3]) + '">' + "\n"
 				html += '<a style="cursor: pointer;" onclick="javascript:o=document.getElementById(\'r' + str(r[3]) + '\');if(o.style.display==\'none\'){ o.style.display=\'block\';} else {o.style.display=\'none\';}">+</a> ' + r[2] + "\n"
 				html += '<div id="r' + str(r[3]) + '" style="display:none;">' + "\n"
-				html += '<div style="margin-left:50px;font-weight:bold;"><pre>' +  cgi.escape(r[1]) + '</pre></div>'
-				html += '<pre><span style="color:gray;">' + r[4] + ':</span> &nbsp; ' + cgi.escape(r[5]) + '</pre>' + "\n"
+				html += '<div style="font-weight:bold;"><pre>' +  cgi.escape(r[1]) + '</pre></div>'
+				html += '<pre style="margin-left:50px;"><span style="color:gray;">' + r[4] + ':</span> &nbsp; ' + cgi.escape(r[5]) + '</pre>' + "\n"
 
 			else:
-				html += '<pre><span style="color:gray;">' + r[4] + ':</span> &nbsp; ' + cgi.escape(r[5]) + '</pre>' + "\n"
+				html += '<pre style="margin-left:50px;"><span style="color:gray;">' + r[4] + ':</span> &nbsp; ' + cgi.escape(r[5]) + '</pre>' + "\n"
 
 			count   += 1
 			language = r[0]
