@@ -212,7 +212,7 @@ def repo_scan(repo, account):
 				if True == do_scan:
 					checkout_code(cmd, checkout_url, account, project_name)
 					# scan local files
-					local_scan(os.path.dirname(os.path.abspath(__file__)) + '/src/' + account, repo, account, project_name)
+					local_scan(os.path.dirname(os.path.abspath(__file__)) + '/src/' + account + '/' + project_name, repo, account, project_name)
 
 		elif 'bitbucket' == repo:
 			for j in range(0, len(data["values"])):
@@ -236,7 +236,7 @@ def repo_scan(repo, account):
 					if True == do_scan:
 						checkout_code(cmd, checkout_url, account, project_name)
 						# scan local files
-						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/src/' + account, repo, account, project_name)
+						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/src/' + account + '/' + project_name, repo, account, project_name)
 
 		elif 'sourceforge' == repo:
 			for i in data['projects']:
@@ -268,7 +268,7 @@ def repo_scan(repo, account):
 					if None != cmd:
 						checkout_code(cmd, checkout_url, account, project_name)
 						# scan local files
-						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/src/' + account, repo, account, project_name)
+						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/src/' + account + '/' + project_name, repo, account, project_name)
 					else:
 						print 'No sourceforge repo for ' + account + ' ' + project_name
 
