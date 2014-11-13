@@ -148,17 +148,19 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 
 						perline = str(result[0]).split("\n")
 						for r in range(0, len(perline) - 1):
-							rr = str(perline[r]).replace(basedir, '').split(':', 1)
-							# update databse with new results_detail info
-							result_detail_id = str(uuid.uuid1())
-							params           = [result_detail_id, result_id, rr[0], str(rr[1]).strip()]
-
 							try:
+								rr = str(perline[r]).replace(basedir, '').split(':', 1)
+								# update databse with new results_detail info
+								result_detail_id = str(uuid.uuid1())
+								params           = [result_detail_id, result_id, rr[0], str(rr[1]).strip()]
+							
 								cur.execute("INSERT INTO results_detail (result_detail_id, result_id, file, code) VALUES (?, ?, ?, ?);", params)
 							except lite.Error, e:
 								print params
 								print e
 								# should log this or something
+							except:
+								print 'Error parsing result: ' + str(perline[r])
 
 							db.commit()
 
@@ -188,33 +190,42 @@ def repo_scan(repo, account):
 	rows = cur.fetchall()
 
 	for row in rows:
-		co_url  = row[1].replace('ACCOUNT', account)
 		api_url = row[2].replace('ACCOUNT', account)
 
-		# call api_url
-		data = json.load(urllib2.urlopen(api_url))
-
 		if 'github' == repo:
-			for i in range(0, len(data)):
-				do_scan      = True
-				project_name = data[i]["name"]
-				last_scanned = last_scan(repo, account, project_name)
-				last_changed = datetime.datetime.strptime(data[i]['pushed_at'], "%Y-%m-%dT%H:%M:%SZ")
-				checkout_url = 'https://github.com/' + account + '/' + project_name + '.git'
-				cmd          = 'git'
+			page = 1
+			
+			# call api_url
+			data = json.load(urllib2.urlopen(api_url + '?page=' + str(page) + '&per_page=100'))
+			
+			while len(data):
+				print 'Get page: ' + str(page)
+				for i in range(0, len(data)):
+					do_scan      = True
+					project_name = data[i]["name"]
+					last_scanned = last_scan(repo, account, project_name)
+					last_changed = datetime.datetime.strptime(data[i]['pushed_at'], "%Y-%m-%dT%H:%M:%SZ")
+					checkout_url = 'https://github.com/' + account + '/' + project_name + '.git'
+					cmd          = 'git'
 
-				print project_name + ' last changed on ' + str(last_changed) + ' and last scanned on ' + str(last_scanned)
+					print project_name + ' last changed on ' + str(last_changed) + ' and last scanned on ' + str(last_scanned)
 
-				if None != last_scanned:
-					if last_changed < last_scanned:
-						do_scan = False
+					if None != last_scanned:
+						if last_changed < last_scanned:
+							do_scan = False
 
-				if True == do_scan:
-					checkout_code(cmd, checkout_url, account, project_name)
-					# scan local files
-					local_scan(os.path.dirname(os.path.abspath(__file__)) + '/src/' + account + '/' + project_name, repo, account, project_name)
+					if True == do_scan:
+						checkout_code(cmd, checkout_url, account, project_name)
+						# scan local files
+						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/src/' + account + '/' + project_name, repo, account, project_name)
+				
+				page += 1
+				data = json.load(urllib2.urlopen(api_url + '?page=' + str(page) + '&per_page=100')) # get next page of projects
 
 		elif 'bitbucket' == repo:
+			# call api_url
+			data = json.load(urllib2.urlopen(api_url))
+			
 			for j in range(0, len(data["values"])):
 				value =  data["values"][j]
 
@@ -239,6 +250,9 @@ def repo_scan(repo, account):
 						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/src/' + account + '/' + project_name, repo, account, project_name)
 
 		elif 'sourceforge' == repo:
+			# call api_url
+			data = json.load(urllib2.urlopen(api_url))
+			
 			for i in data['projects']:
 				do_scan      = True
 				project_name = i["url"].replace('/p/', '').replace('/', '')
@@ -320,7 +334,6 @@ def checkout_code(cmd, checkout_url, account, project):
 
 		# remove temp checkout
 		call(['rm', '-rf', os.path.abspath(account_folder + '/tmp/')])
-
 
 def last_scan(repo, account, project):
 	try:
