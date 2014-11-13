@@ -218,6 +218,9 @@ def repo_scan(repo, account):
 						checkout_code(cmd, checkout_url, account, project_name)
 						# scan local files
 						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/src/' + account + '/' + project_name, repo, account, project_name)
+						# clean up because of big projects and stuff
+						call(['rm', '-rf', os.path.dirname(os.path.abspath(__file__)) + '/src/' + account + '/' + project_name])
+						
 				
 				page += 1
 				data = json.load(urllib2.urlopen(api_url + '?page=' + str(page) + '&per_page=100')) # get next page of projects
