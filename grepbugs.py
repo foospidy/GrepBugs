@@ -451,7 +451,7 @@ def html_report(scan_id):
 			regex    = r[1]
 
 		if 0 == count:
-			html += '<h3>No bugs found!<h3><div>Contirbute regular expressions to find bugs in this code at <a href="https://grepbugs.com">GrepBugs.com</a></div>';
+			html += '<h3>No bugs found!<\h3><div>Contirbute regular expressions to find bugs in this code at <a href="https://grepbugs.com">GrepBugs.com</a></div>';
 		else:
 			html += '</div></div></div>'
 		html += '</html>'
