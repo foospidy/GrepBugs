@@ -149,7 +149,7 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 		os.remove(clocsql)
 	except Exception as e:
 		print 'Error executing cloc sql! Aborting scan! See log file for details.'
-		loggin.debug('Error executing cloc sql (scan aborted): ' + str(e))
+		logging.debug('Error executing cloc sql (scan aborted): ' + str(e))
 		return scan_id
 
 	# execute clock again to get txt output
