@@ -12,11 +12,20 @@ import datetime
 from subprocess import call
 import subprocess
 import cgi
+import time
+import logging
 
 dbfile  = os.path.dirname(os.path.abspath(__file__)) + '/data/grepbugs.db'
 gbfile   = os.path.dirname(os.path.abspath(__file__)) + '/data/grepbugs.json'
 cindex  = os.path.dirname(os.path.abspath(__file__)) + '/third-party/codesearch/cindex'
 csearch = os.path.dirname(os.path.abspath(__file__)) + '/third-party/codesearch/csearch'
+logfile = os.path.dirname(os.path.abspath(__file__)) + '/log/grepbugs.log'
+
+# setup logging; create directory if it doesn't exist, and configure logging
+if not os.path.exists(os.path.dirname(logfile)):
+	os.makedirs(os.path.dirname(logfile))
+
+logging.basicConfig(filename=logfile, level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 
 def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 	"""
@@ -27,84 +36,131 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 	cloctxt = '/tmp/gb.cloc.' + scan_id + '.txt'
 	clocsql = '/tmp/gb.cloc.' + scan_id + '.sql'
 	basedir = os.path.dirname(os.path.abspath(__file__)) + '/' + srcdir.rstrip('/')
+	logging.info('Starting local scan with scsan id ' + scan_id)
 
+	# get db connection
 	try:
 		db  = lite.connect(dbfile)
 		cur = db.cursor()
 
-	except lite.Error, e:
-		print 'Error connecting to db file'
+	except lite.Error as e:
+		print 'Error connecting to db file! See log file for details.'
+		logging.debug('Error connecting to db file: ' + str(e))
+		sys.exit(1)
+	except Exception as e:
+		print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
+		logging.critical('Unhandled exception: ' + str(e))
 		sys.exit(1)
 
 	# get latest greps
 	try:
-		print 'retreiving rules...'
 		url = 'https://grepbugs.com/json'
-		f   = urllib2.urlopen(url)
-		j   = f.read()
+		print 'retreiving rules...'
+		logging.info('Retreiving rules from ' + url)
 
-		with open(gbfile, 'wb') as jsonfile:
-			jsonfile.write(j)
+		# if request fails, try 3 times
+		count     = 0
+		max_tries = 3
+		while count < max_tries:
+			try:
+				f   = urllib2.urlopen(url)
+				j   = f.read()
 
-	except urllib2.URLError as error:
-		print 'Error retreiving grep rules ' + str(error)
+				with open(gbfile, 'wb') as jsonfile:
+					jsonfile.write(j)
+
+				# no exceptions so break out of while loop
+				break
+			except urllib2.URLError as e:
+				count = count + 1
+				if count <= max_tries:
+					logging.warning('Error retreiving grep rules (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
+					time.sleep(3)
+
+			except Exception as e:
+				print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
+				logging.critical('Unhandled exception: ' + str(e))
+				sys.exit(1)
+
+		if count == max_tries:
+			# grep rules were not retrieved, could be working with old rules.
+			logging.debug('Error retreiving grep rules (no more tries left. could be using old grep rules.): ' + str(e))
+				
+	except Exception as e:
+		print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
+		logging.critical('Unhandled exception: ' + str(e))
 		sys.exit(1)
 
-	# clean database
-	cur.execute("DROP TABLE IF EXISTS metadata;");
-	cur.execute("DROP TABLE IF EXISTS t;");
-	cur.execute("VACUUM");
+	# prep db for capturing scan results
+	try:
+		# clean database
+		cur.execute("DROP TABLE IF EXISTS metadata;");
+		cur.execute("DROP TABLE IF EXISTS t;");
+		cur.execute("VACUUM");
 
-	# update database with new project info
-	if 'none' == project:
-		project = srcdir
+		# update database with new project info
+		if 'none' == project:
+			project = srcdir
 
-	# query database
-	params     = [repo, account, project]
-	cur.execute("SELECT project_id FROM projects WHERE repo=? AND account=? AND project=? LIMIT 1;", params)
-	rows = cur.fetchall()
+		# query database
+		params     = [repo, account, project]
+		cur.execute("SELECT project_id FROM projects WHERE repo=? AND account=? AND project=? LIMIT 1;", params)
+		rows = cur.fetchall()
 
-	# assume new project by default
-	newproject = True
+		# assume new project by default
+		newproject = True
 
-	for row in rows:
-		# not so fast, not a new project
-		newproject = False
-		project_id = row[0]
+		for row in rows:
+			# not so fast, not a new project
+			newproject = False
+			project_id = row[0]
 
-	if True == newproject:
-		project_id = str(uuid.uuid1())
-		params     = [project_id, repo, account, project]
-		cur.execute("INSERT INTO projects (project_id, repo, account, project) VALUES (?, ?, ?, ?);", params)
+		if True == newproject:
+			project_id = str(uuid.uuid1())
+			params     = [project_id, repo, account, project]
+			cur.execute("INSERT INTO projects (project_id, repo, account, project) VALUES (?, ?, ?, ?);", params)
 
-	# update database with new scan info
-	params  = [scan_id, project_id]
-	cur.execute("INSERT INTO scans (scan_id, project_id) VALUES (?, ?);", params)
-	db.commit()
+		# update database with new scan info
+		params  = [scan_id, project_id]
+		cur.execute("INSERT INTO scans (scan_id, project_id) VALUES (?, ?);", params)
+		db.commit()
+	except lite.Error as e:
+		print 'Error prepping database! See log file for details.'
+		logging.debug('Error with database: ' + str(e))
+		sys.exit(1)
+	except Exception as e:
+		print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
+		logging.critical('Unhandled exception: ' + str(e))
+		sys.exit(1)
 
 	# execute cloc to get sql output
-	print 'counting source files...'
-
-	#  "--force-lang=PHP,inc",
-	call(["cloc", "--skip-uniqueness", "--quiet", "--sql=" + clocsql, "--sql-project=" + srcdir, srcdir])
-
-	# run sql script generated by cloc to save output to database
 	try:
+		print 'counting source files...'
+		logging.info('Running cloc for sql output.')
+		return_code = call(["cloc", "--skip-uniqueness", "--quiet", "--sql=" + clocsql, "--sql-project=" + srcdir, srcdir])
+		if 0 != return_code:
+			raise ClocSQLFail('WARNING: cloc did not run normally. return code: ' + str(return_code))
+		
+		# run sql script generated by cloc to save output to database
 		f = open(clocsql, 'r')
 		cur.executescript(f.read())
 		db.commit()
 		f.close
 		os.remove(clocsql)
+	except ClocSQLFail as e:
+		print e
+		logging.debug(e)
 	except Exception as e:
-		print 'Error : ' + str(e)
+		print 'Error executing cloc sql! Aborting scan! See log file for details.'
+		loggin.debug('Error executing cloc sql (scan aborted): ' + str(e))
 		return scan_id
 
 	# execute clock again to get txt output
-	#  "--force-lang=PHP,inc",
-	call(["cloc", "--skip-uniqueness", "--quiet", "-out=" + cloctxt, srcdir])
-
-	# save cloc txt output to database
 	try:
+		logging.info('Running cloc for txt output.')
+		call(["cloc", "--skip-uniqueness", "--quiet", "-out=" + cloctxt, srcdir])
+
+		# save cloc txt output to database
 		f = open(cloctxt, 'r')
 		params = [f.read(), scan_id]
 		f.close
@@ -112,19 +168,31 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 		db.commit()
 		os.remove(cloctxt)
 	except Exception as e:
-		print 'Error : ' + str(e)
+		print 'Error saving cloc txt! Aborting scan! See log file for details.'
+		loggin.debug('Error saving cloc txt (scan aborted): ' + str(e))
 		return scan_id
 
 	# execute cindex
-	print 'indexing source files...'
-
-	call([cindex, "-reset"])
-	call([cindex, srcdir])
+	try:
+		print 'indexing source files...'
+		logging.info('Indexing source files.')
+		call([cindex, "-reset"])
+		call([cindex, srcdir])
+	except Exception as e:
+		print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
+		logging.critical('Unhandled exception: ' + str(e))
+		sys.exit(1)
 
 	# load json data
-	json_file = open(gbfile, "r")
-	greps     = json.load(json_file)
-	json_file.close()
+	try:
+		logging.info('Reading grep rules from json file.')
+		json_file = open(gbfile, "r")
+		greps     = json.load(json_file)
+		json_file.close()
+	except Exception as e:
+		print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
+		logging.critical('Unhandled exception: ' + str(e))
+		sys.exit(1)
 
 	# query database
 	cur.execute("SELECT DISTINCT Language FROM t ORDER BY Language;")
@@ -132,6 +200,7 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 
 	# grep all the bugs and output to file
 	print 'grepping for bugs...'
+	logging.info('Start grepping for bugs.')
 
 	# get cloc extensions and create extension array
 	clocext  = ''
@@ -176,22 +245,23 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 							for r in range(0, len(perline) - 1):
 								try:
 									rr = str(perline[r]).replace(basedir, '').split(':', 1)
-									# update databse with new results_detail info
+									# update database with new results_detail info
 									result_detail_id = str(uuid.uuid1())
 									params           = [result_detail_id, result_id, rr[0], str(rr[1]).strip()]
 
 									cur.execute("INSERT INTO results_detail (result_detail_id, result_id, file, code) VALUES (?, ?, ?, ?);", params)
 								except lite.Error, e:
-									print params
-									print e
-									# should log this or something
-								except:
+									print 'SQL error! See log file for details.'
+									logging.debug('SQL error with params ' + str(params) + ' and error ' + str(e))
+								except Exception as e:
 									print 'Error parsing result: ' + str(perline[r])
+									logging.debug('Error parsing result: ' + sr(e))
 
 								db.commit()
 
 					except Exception as e:
-						print 'Error calling csearch : ' + str(e)
+						print 'Error calling csearch! See log file for details'
+						logging.debug('Error calling csearch: ' + sr(e))
 
 	params = [project_id]
 	cur.execute("UPDATE projects SET last_scan=datetime('now') WHERE project_id=?;", params)
@@ -210,8 +280,9 @@ def repo_scan(repo, account):
 		db  = lite.connect(dbfile)
 		cur = db.cursor()
 
-	except lite.Error, e:
+	except lite.Error as e:
 		print 'Error connecting to db file'
+		logging.debug('Error connecting to db file' + str(e))
 		sys.exit(1)
 
 	params = [repo]
