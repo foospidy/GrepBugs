@@ -293,8 +293,32 @@ def repo_scan(repo, account):
 			page = 1
 			
 			# call api_url
-			data = json.load(urllib2.urlopen(api_url + '?page=' + str(page) + '&per_page=100'))
-			
+			# if request fails, try 3 times
+			count     = 0
+			max_tries = 3
+			logging.info('Calling github api for ' + api_url)
+			while count < max_tries:
+				try:
+					data = json.load(urllib2.urlopen(api_url + '?page=' + str(page) + '&per_page=100'))
+
+					# no exceptions so break out of while loop
+					break
+				except urllib2.URLError as e:
+					count = count + 1
+					if count <= max_tries:
+						logging.warning('Error calling github api (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
+						time.sleep(3) # take a break, throttle a bit
+
+				except Exception as e:
+					print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
+					logging.critical('Unhandled exception: ' + str(e))
+					sys.exit(1)
+
+			if count == max_tries:
+				# grep rules were not retrieved, could be working with old rules.
+				logging.crtical('Error retreiving data from github hapi (no more tries left. could be using old grep rules.): ' + str(e))
+				sys.exit(1)
+
 			while len(data):
 				print 'Get page: ' + str(page)
 				for i in range(0, len(data)):
@@ -310,6 +334,7 @@ def repo_scan(repo, account):
 					if None != last_scanned:
 						if last_changed < last_scanned:
 							do_scan = False
+							time.sleep(1) # throttle requests; github could be temperamental
 
 					if True == do_scan:
 						checkout_code(cmd, checkout_url, account, project_name)
