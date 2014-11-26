@@ -316,7 +316,7 @@ def repo_scan(repo, account):
 
 			if count == max_tries:
 				# grep rules were not retrieved, could be working with old rules.
-				logging.crtical('Error retreiving data from github hapi (no more tries left. could be using old grep rules.): ' + str(e))
+				logging.critical('Error retreiving data from github api (no more tries left. could be using old grep rules.): ' + str(e))
 				sys.exit(1)
 
 			while len(data):
