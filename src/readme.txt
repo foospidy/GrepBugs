@@ -1,2 +1,1 @@
-directory for source code used by grepgit
-
+directory for source code
