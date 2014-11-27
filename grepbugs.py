@@ -258,7 +258,7 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 
 					except Exception as e:
 						print 'Error calling csearch! See log file for details'
-						logging.debug('Error calling csearch: ' + sr(e))
+						logging.debug('Error calling csearch: ' + str(e))
 
 	params = [project_id]
 	cur.execute("UPDATE projects SET last_scan=datetime('now') WHERE project_id=?;", params)
