@@ -423,8 +423,14 @@ def checkout_code(cmd, checkout_url, account, project):
 	# checkout code
 	call(['rm', '-rf', account_folder + '/' + project])
 	if 'git' == cmd:
+		# in cases where auth is required inject credentials into checkout_url.
+		# clone does not require auth so injecting credentials has no impact.
+		# however if an account is locked (e.g. github.com locks an account for copyright violations)
+		# the clone command will be prompted for credentials. The default credentials are intended
+		# to fail auth in this scenario.
+		split_checkout_url = checkout_url.split('://')
 		print 'git clone...'
-		call(['git', 'clone', checkout_url, account_folder + '/' + project])
+		call(['git', 'clone', split_checkout_url[0] + '://' + args.repo_user + ':' + args.repo_pass + '@' + split_checkout_url[1], account_folder + '/' + project])
 	elif 'svn' == cmd:
 		# need to do a lot of craziness for svn, no wonder people use git now.
 		print 'svn checkout...'
