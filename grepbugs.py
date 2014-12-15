@@ -252,7 +252,7 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 									logging.debug('SQL error with params ' + str(params) + ' and error ' + str(e))
 								except Exception as e:
 									print 'Error parsing result: ' + str(perline[r])
-									logging.debug('Error parsing result: ' + sr(e))
+									logging.debug('Error parsing result: ' + str(e))
 
 								db.commit()
 
