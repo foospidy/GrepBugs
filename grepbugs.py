@@ -269,7 +269,7 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 
 	return scan_id
 
-def repo_scan(repo, account):
+def repo_scan(repo, account, force):
 	"""
 	Check code out from a remote repo and scan import
 	"""
@@ -335,6 +335,9 @@ def repo_scan(repo, account):
 						if last_changed < last_scanned:
 							do_scan = False
 							time.sleep(1) # throttle requests; github could be temperamental
+
+					if True == force:
+							do_scan = True
 
 					if True == do_scan:
 						checkout_code(cmd, checkout_url, account, project_name)
@@ -511,9 +514,17 @@ def html_report(scan_id):
 		print 'writing report...'
 		htmlfile = os.path.dirname(os.path.abspath(__file__)) + '/out/' + row[0] + '.' + row[1] + '.' + row[2].replace("/", "_") + '.' + row[3] + '.html'
 
+		# include repo/account/project link
+		if 'github' == row[0]:
+			project_base_url = 'https://github.com/' + row[1] + '/' + row[2]
+			link             = '(<a href="' + project_base_url + '" target="_new">' + project_base_url + '</a>)'
+		else:
+			project_base_url = ''
+			link             = '';
+
 		o = open(htmlfile, 'w')
 		o.write("<!DOCTYPE html><pre>\n" + h.decode('base64') + "</pre>")
-		o.write("<pre>\n" + "repo: " + row[0] + "\naccount: " + row[1] + "\nproject: " + row[2] + "\nscan id: " + row[3] + "\ndate: " + row[4] + "</pre>\n")
+		o.write("<pre>\n" + "repo: " + row[0] + "\naccount: " + row[1] + "\nproject: " + row[2] + " " + link + "\nscan id: " + row[3] + "\ndate: " + row[4] + "</pre>\n")
 		o.write("<pre>\n" + str(row[5]).replace("\n", "<br>") + "</pre>")
 		o.close()
 
@@ -529,21 +540,24 @@ def html_report(scan_id):
 		for r in rs:
 			if regex != r[1]:
 				if 0 != count:
-					html += '		</div></div>'; # end result set for regex
+					html += '	</div>' + "\n"; # end result set for regex
 
 			if language != r[0]:
-				if 0 != count:
-					html += '		</div>'; # end result set for language
-				html += '<h4>' + r[0] + '</h4>' + "\n"
+				html += '<h4 style="margin-left:15px;">' + r[0] + '</h4>' + "\n"
 
 			if regex != r[1]:
-				html += '<div style="margin-left:15px;">' + "\n"
-				html += '	<a name="' + str(r[3]) + '">' + "\n"
-				html += '	<a style="cursor: pointer;" onclick="javascript:o=document.getElementById(\'r' + str(r[3]) + '\');if(o.style.display==\'none\'){ o.style.display=\'block\';} else {o.style.display=\'none\';}">+ ' + r[2] + "</a>\n"
-				html += '	<div id="r' + str(r[3]) + '" style="display:none;">' + "\n" # description
-				html += '		<div style="font-weight:bold;"><pre>' +  cgi.escape(r[1]) + '</pre></div>' #regex
+				html += '	<div style="margin-left:15px;"><a style="cursor: pointer;" onclick="javascript:o=document.getElementById(\'r' + str(r[3]) + '\');if(o.style.display==\'none\'){ o.style.display=\'block\';} else {o.style.display=\'none\';}">+ ' + r[2] + "</a></div>\n"
+				html += '	<div id="r' + str(r[3]) + '" style="display:none;margin-left:15px;">' + "\n" # description
+				html += '		<div style="font-weight:bold;margin-left:15px;"><pre>' +  cgi.escape(r[1]) + '</pre></div>' + "\n" #regex
 
-			html += '		<pre style="margin-left:50px;"><span style="color:gray;">' + r[4] + ':</span> &nbsp; ' + cgi.escape(r[5]) + '</pre>' + "\n" # finding
+			# include repo/account/project/file link
+			if 'github' == row[0]:
+				
+				file_link = '<a href="https://github.com/' + r[4][r[4].index(row[1]):].replace(row[1] + '/' + row[2] + '/', row[1] + '/' + row[2] + '/blob/master/') + '" target="_new">#</a>'
+			else:
+				file_link = '';
+
+			html += '		<pre style="margin-left:50px;"><span style="color:gray;">' + r[4][r[4].index(row[1]):] + ' ' + file_link + ':</span> &nbsp; ' + cgi.escape(r[5]) + '</pre>' + "\n" # finding
 
 			count   += 1
 			language = r[0]
@@ -552,7 +566,8 @@ def html_report(scan_id):
 		if 0 == count:
 			html += '<h3>No bugs found!</h3><div>Contirbute regular expressions to find bugs in this code at <a href="https://grepbugs.com">GrepBugs.com</a></div>';
 		else:
-			html += '</div></div></div>'
+			html += '	</div>' + "\n"
+		
 		html += '</html>'
 		o.write(html)
 		o.close()
@@ -567,6 +582,7 @@ parser.add_argument('-r', help='specify a repo to scan (e.g. github, bitbucket, 
 parser.add_argument('-a', help='specify an account for the specified repo.')
 parser.add_argument('-repo_user', help='specify a username to be used in authenticating to the specified repo (default: grepbugs).', default='grepbugs')
 parser.add_argument('-repo_pass', help='specify a password to be used in authenticating to the specified repo (default: grepbugs).', default='grepbugs')
+parser.add_argument('-f', help='force scan even if project has not been modified since last scan.', default=False, action="store_true")
 args = parser.parse_args()
 
 if None == args.d and None == args.r:
@@ -582,4 +598,4 @@ elif None != args.r:
 		sys.exit(1)
 
 	print 'scan repo: ' + args.r + ' ' + args.a
-	scan_id = repo_scan(args.r, args.a)
+	scan_id = repo_scan(args.r, args.a, args.f)
