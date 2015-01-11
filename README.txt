@@ -13,6 +13,6 @@ A basic HTML report will be generated in the out/ directory.
 Example reports: https://www.grepbugs.com/reports
 
 Dependencies:
-- cindex & csearch from (http://swtch.com/~rsc/regexp/regexp4.html). These binaries are included in the third-party/ directory.
+- grep (http://www.gnu.org/software/grep/). ON Debian run: apt-get install grep
 
 - cloc (http://cloc.sourceforge.net/). On Debian run: apt-get install cloc
