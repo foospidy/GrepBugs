@@ -31,7 +31,6 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 	"""
 	# new scan so new scan_id
 	scan_id = str(uuid.uuid1())
-	cloctxt = '/tmp/gb.cloc.' + scan_id + '.txt'
 	clocsql = '/tmp/gb.cloc.' + scan_id + '.sql'
 	basedir = os.path.dirname(os.path.abspath(__file__)) + '/' + srcdir.rstrip('/')
 	logging.info('Starting local scan with scsan id ' + scan_id)
@@ -62,7 +61,7 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 		while count < max_tries:
 			try:
 				request = urllib2.Request(url)
-				request.add_header('User-agent', 'GrepBugs Script (v1.0)')
+				request.add_header('User-agent', 'GrepBugs Script (1.0)')
 				
 				response = urllib2.urlopen(request)
 				j        = response.read()
