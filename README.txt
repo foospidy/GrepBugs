@@ -13,6 +13,6 @@ A basic HTML report will be generated in the out/ directory.
 Example reports: https://www.grepbugs.com/reports
 
 Dependencies:
-- grep (http://www.gnu.org/software/grep/). ON Debian run: apt-get install grep
+- grep (http://www.gnu.org/software/grep/). On Debian run: apt-get install grep
 
 - cloc (http://cloc.sourceforge.net/). On Debian run: apt-get install cloc
