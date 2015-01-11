@@ -61,7 +61,7 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 		while count < max_tries:
 			try:
 				request = urllib2.Request(url)
-				request.add_header('User-agent', 'GrepBugs Script (1.0)')
+				request.add_header('User-agent', 'GrepBugs for Python (1.0)')
 				
 				response = urllib2.urlopen(request)
 				j        = response.read()
