@@ -33,7 +33,7 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 	scan_id = str(uuid.uuid1())
 	clocsql = '/tmp/gb.cloc.' + scan_id + '.sql'
 	basedir = os.path.dirname(os.path.abspath(__file__)) + '/' + srcdir.rstrip('/')
-	logging.info('Starting local scan with scsan id ' + scan_id)
+	logging.info('Starting local scan with scan id ' + scan_id)
 
 	# get db connection
 	try:
