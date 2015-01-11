@@ -17,8 +17,6 @@ import logging
 
 dbfile  = os.path.dirname(os.path.abspath(__file__)) + '/data/grepbugs.db'
 gbfile  = os.path.dirname(os.path.abspath(__file__)) + '/data/grepbugs.json'
-cindex  = os.path.dirname(os.path.abspath(__file__)) + '/third-party/codesearch/cindex'
-csearch = os.path.dirname(os.path.abspath(__file__)) + '/third-party/codesearch/csearch'
 logfile = os.path.dirname(os.path.abspath(__file__)) + '/log/grepbugs.log'
 
 # setup logging; create directory if it doesn't exist, and configure logging
@@ -63,8 +61,11 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 		max_tries = 3
 		while count < max_tries:
 			try:
-				f   = urllib2.urlopen(url)
-				j   = f.read()
+				request = urllib2.Request(url)
+				request.add_header('User-agent', 'GrepBugs Script (v1.0)')
+				
+				response = urllib2.urlopen(request)
+				j        = response.read()
 
 				with open(gbfile, 'wb') as jsonfile:
 					jsonfile.write(j)
@@ -152,33 +153,39 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 		logging.debug('Error executing cloc sql (scan aborted). It is possible there were no results from running cloc.: ' + str(e))
 		return scan_id
 
+	# query cloc results
+	cur.execute("SELECT Language, count(File), SUM(nBlank), SUM(nComment), SUM(nCode) FROM t GROUP BY Language ORDER BY Language;")
+	
+	rows    = cur.fetchall()
+	cloctxt =  '-------------------------------------------------------------------------------' + "\n"
+	cloctxt += 'Language                     files          blank        comment           code' + "\n"
+	cloctxt += '-------------------------------------------------------------------------------' + "\n"
+	
+	sum_files   = 0
+	sum_blank   = 0
+	sum_comment = 0
+	sum_code    = 0
+
+	for row in rows:
+		cloctxt += '{0:20}  {1:>12}  {2:>13} {3:>14} {4:>14}'.format(str(row[0]), str(row[1]), str(row[2]), str(row[3]), str(row[4])) + "\n"
+		sum_files   += row[1]
+		sum_blank   += row[2]
+		sum_comment += row[3]
+		sum_code    += row[4]
+	
+	cloctxt += '-------------------------------------------------------------------------------' + "\n"
+	cloctxt += '{0:20}  {1:>12}  {2:>13} {3:>14} {4:>14}'.format('Sum', str(sum_files), str(sum_blank), str(sum_comment), str(sum_code)) + "\n"
+	cloctxt += '-------------------------------------------------------------------------------' + "\n"
+
 	# execute clock again to get txt output
 	try:
-		logging.info('Running cloc for txt output.')
-		call(["cloc", "--skip-uniqueness", "--quiet", "-out=" + cloctxt, srcdir])
-
-		# save cloc txt output to database
-		f = open(cloctxt, 'r')
-		params = [f.read(), scan_id]
-		f.close
+		params = [cloctxt, scan_id]
 		cur.execute("UPDATE scans SET cloc_out=? WHERE scan_id=?;", params)
 		db.commit()
-		os.remove(cloctxt)
 	except Exception as e:
 		print 'Error saving cloc txt! Aborting scan! See log file for details.'
 		loggin.debug('Error saving cloc txt (scan aborted): ' + str(e))
 		return scan_id
-
-	# execute cindex
-	try:
-		print 'indexing source files...'
-		logging.info('Indexing source files.')
-		call([cindex, "-reset"])
-		call([cindex, srcdir])
-	except Exception as e:
-		print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
-		logging.critical('Unhandled exception: ' + str(e))
-		sys.exit(1)
 
 	# load json data
 	try:
@@ -226,12 +233,17 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 
 					# search with regex, filter by extensions, and capture result
 					result = ''
-					filter = ".*\.(" + "|".join(extensions) + ")$"
+					filter = []
+
+					# build filter by extension
+					for e in extensions:
+						filter.append('--include=*.' + e)
+
 					try:
-						proc   = subprocess.Popen([csearch, "-i", "-f", filter, greps[i]['regex']], stdout=subprocess.PIPE)
+						proc   = subprocess.Popen(["grep", "-n", "-r", "-P"] +  filter + [greps[i]['regex'], srcdir], stdout=subprocess.PIPE)
 						result = proc.communicate()
 
-						if len(result[0]):
+						if len(result[0]):	
 							# update database with new results info
 							result_id = str(uuid.uuid1())
 							params    = [result_id, scan_id, greps[i]['language'], greps[i]['id'], greps[i]['regex'], greps[i]['description']]
@@ -244,21 +256,22 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 									rr = str(perline[r]).replace(basedir, '').split(':', 1)
 									# update database with new results_detail info
 									result_detail_id = str(uuid.uuid1())
-									params           = [result_detail_id, result_id, rr[0], str(rr[1]).strip()]
+									code             = str(rr[1]).split(':', 1)
+									params           = [result_detail_id, result_id, rr[0], code[0], str(code[1]).strip()]
 
-									cur.execute("INSERT INTO results_detail (result_detail_id, result_id, file, code) VALUES (?, ?, ?, ?);", params)
+									cur.execute("INSERT INTO results_detail (result_detail_id, result_id, file, line, code) VALUES (?, ?, ?, ?, ?);", params)
 								except lite.Error, e:
 									print 'SQL error! See log file for details.'
 									logging.debug('SQL error with params ' + str(params) + ' and error ' + str(e))
 								except Exception as e:
-									print 'Error parsing result: ' + str(perline[r])
+									print 'Error parsing result! See log file for details.'
 									logging.debug('Error parsing result: ' + str(e))
 
 								db.commit()
-
+							
 					except Exception as e:
-						print 'Error calling csearch! See log file for details'
-						logging.debug('Error calling csearch: ' + str(e))
+						print 'Error calling grep! See log file for details'
+						logging.debug('Error calling grep: ' + str(e))
 
 	params = [project_id]
 	cur.execute("UPDATE projects SET last_scan=datetime('now') WHERE project_id=?;", params)
@@ -528,7 +541,7 @@ def html_report(scan_id):
 		o.write("<pre>\n" + str(row[5]).replace("\n", "<br>") + "</pre>")
 		o.close()
 
-		cur.execute("SELECT b.language, b.regex_text, b.description, c.result_detail_id, c.file, c.code FROM scans a, results b, results_detail c WHERE a.scan_id=? AND a.scan_id=b.scan_id AND b.result_id=c.result_id ORDER BY b.language, b.regex_id, c.file;", params)
+		cur.execute("SELECT b.language, b.regex_text, b.description, c.result_detail_id, c.file, c.line, c.code FROM scans a, results b, results_detail c WHERE a.scan_id=? AND a.scan_id=b.scan_id AND b.result_id=c.result_id ORDER BY b.language, b.regex_id, c.file;", params)
 		rs       = cur.fetchall()
 		o        = open(htmlfile, 'a')
 		html     = "\n\n"
@@ -550,14 +563,25 @@ def html_report(scan_id):
 				html += '	<div id="r' + str(r[3]) + '" style="display:none;margin-left:15px;">' + "\n" # description
 				html += '		<div style="font-weight:bold;margin-left:15px;"><pre>' +  cgi.escape(r[1]) + '</pre></div>' + "\n" #regex
 
+			# determine the number of occurrences of account in the path, set begin to the position to the last occurrence
+			account_occurrences = r[4].count(row[1])
+			begin               = 0			
+			for occurance in range(0, account_occurrences):
+				begin = r[4].index(row[1], begin)
+				if(account_occurrences > 1 and occurance + 1 != account_occurrences):
+					begin = begin + 1
+			
 			# include repo/account/project/file link
 			if 'github' == row[0]:
-				
-				file_link = '<a href="https://github.com/' + r[4][r[4].index(row[1]):].replace(row[1] + '/' + row[2] + '/', row[1] + '/' + row[2] + '/blob/master/') + '" target="_new">#</a>'
+				file_link   = '<a href="https://github.com/' + r[4][r[4].index(row[1], begin):].replace(row[1] + '/' + row[2] + '/', row[1] + '/' + row[2] + '/blob/master/') + '#L' + str(r[5]) + '" target="_new">' + str(r[5]) + '</a>'
+				ltrim_by    = row[1]
+				ltrim_begin = begin
 			else:
-				file_link = '';
+				file_link   = str(r[5]);
+				ltrim_by    = row[2]
+				ltrim_begin = 0
 
-			html += '		<pre style="margin-left:50px;"><span style="color:gray;">' + r[4][r[4].index(row[1]):] + ' ' + file_link + ':</span> &nbsp; ' + cgi.escape(r[5]) + '</pre>' + "\n" # finding
+			html += '		<pre style="margin-left:50px;"><span style="color:gray;">' + r[4][r[4].index(ltrim_by, ltrim_begin):] + ' ' + file_link + ':</span> &nbsp; ' + cgi.escape(r[6]) + '</pre>' + "\n" # finding
 
 			count   += 1
 			language = r[0]
