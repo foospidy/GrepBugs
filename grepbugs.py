@@ -19,6 +19,17 @@ dbfile  = os.path.dirname(os.path.abspath(__file__)) + '/data/grepbugs.db'
 gbfile  = os.path.dirname(os.path.abspath(__file__)) + '/data/grepbugs.json'
 logfile = os.path.dirname(os.path.abspath(__file__)) + '/log/grepbugs.log'
 
+# determine which grep binary to use
+grepbin = 'grep'
+
+# BSD and OS X grep do not support -P; change this to path to GNU grep; e.g. /usr/local/bin/grep, ggrep, etc.
+# http://www.heystephenwood.com/2013/09/install-gnu-grep-on-mac-osx.html
+if 'darwin' == sys.platform:
+	for root, dirnames, filenames in os.walk('/usr/local/Cellar/grep'):
+		for filename in filenames:
+			if 'ggrep' == filename:
+				grepbin = os.path.join(root, filename)
+
 # setup logging; create directory if it doesn't exist, and configure logging
 if not os.path.exists(os.path.dirname(logfile)):
 	os.makedirs(os.path.dirname(logfile))
@@ -33,6 +44,7 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 	scan_id = str(uuid.uuid1())
 	clocsql = '/tmp/gb.cloc.' + scan_id + '.sql'
 	basedir = os.path.dirname(os.path.abspath(__file__)) + '/' + srcdir.rstrip('/')
+	logging.info('Using grep binary ' + grepbin)
 	logging.info('Starting local scan with scan id ' + scan_id)
 
 	# get db connection
@@ -239,7 +251,7 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 						filter.append('--include=*.' + e)
 
 					try:
-						proc   = subprocess.Popen(["grep", "-n", "-r", "-P"] +  filter + [greps[i]['regex'], srcdir], stdout=subprocess.PIPE)
+						proc   = subprocess.Popen([grepbin, "-n", "-r", "-P"] +  filter + [greps[i]['regex'], srcdir], stdout=subprocess.PIPE)
 						result = proc.communicate()
 
 						if len(result[0]):	
