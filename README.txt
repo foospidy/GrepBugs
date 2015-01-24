@@ -13,11 +13,15 @@ A basic HTML report will be generated in the out/ directory.
 Example reports: https://www.grepbugs.com/reports
 
 Dependencies:
-- grep (http://www.gnu.org/software/grep/). On Debian run: apt-get install grep
-  - For OSX, you will need to install gnu grep (see http://www.heystephenwood.com/2013/09/install-gnu-grep-on-mac-osx.html)
+- grep (http://www.gnu.org/software/grep/).
+  - On Debian run: apt-get install grep
+  - On OSX, you will need to install gnu grep (see http://www.heystephenwood.com/2013/09/install-gnu-grep-on-mac-osx.html)
 
-- cloc (http://cloc.sourceforge.net/). On Debian run: apt-get install cloc
+- cloc (http://cloc.sourceforge.net/).
+  - On Debian run: apt-get install cloc
 
-- git (http://git-scm.com/). On Debian run: apt-get install git
+- git (http://git-scm.com/).
+  - On Debian run: apt-get install git
 
-- svn (https://subversion.apache.org/). On Debian run: apt-get install subversion
+- svn (https://subversion.apache.org/).
+  - On Debian run: apt-get install subversion
