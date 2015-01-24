@@ -17,3 +17,7 @@ Dependencies:
   - For OSX, you will need to install gnu grep (see http://www.heystephenwood.com/2013/09/install-gnu-grep-on-mac-osx.html)
 
 - cloc (http://cloc.sourceforge.net/). On Debian run: apt-get install cloc
+
+- git (http://git-scm.com/). On Debian run: apt-get install git
+
+- svn (https://subversion.apache.org/). On Debian run: apt-get install subversion
