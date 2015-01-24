@@ -537,7 +537,8 @@ def html_report(scan_id):
 	for row in rows:
 		print 'writing report...'
 		htmlfile = os.path.dirname(os.path.abspath(__file__)) + '/out/' + row[0] + '.' + row[1] + '.' + row[2].replace("/", "_") + '.' + row[3] + '.html'
-
+		tabfile  = os.path.dirname(os.path.abspath(__file__)) + '/out/' + row[0] + '.' + row[1] + '.' + row[2].replace("/", "_") + '.' + row[3] + '.tabs.csv'
+		
 		# include repo/account/project link
 		if 'github' == row[0]:
 			project_base_url = 'https://github.com/' + row[1] + '/' + row[2]
@@ -551,17 +552,34 @@ def html_report(scan_id):
 		o.write("<pre>\n" + "repo: " + row[0] + "\naccount: " + row[1] + "\nproject: " + row[2] + " " + link + "\nscan id: " + row[3] + "\ndate: " + row[4] + "</pre>\n")
 		o.write("<pre>\n" + str(row[5]).replace("\n", "<br>") + "</pre>")
 		o.close()
+		
+		t = open(tabfile, 'w')
+		t.write("GrepBugs\n")
+		t.write("repo:\t" + row[0] + "\naccount:\t" + row[1] + "\nproject:\t" + row[2] + " " + link + "\nscan id:\t" + row[3] + "\ndate:\t" + row[4] + "\n")
+		t.close()
 
 		cur.execute("SELECT b.language, b.regex_text, b.description, c.result_detail_id, c.file, c.line, c.code FROM scans a, results b, results_detail c WHERE a.scan_id=? AND a.scan_id=b.scan_id AND b.result_id=c.result_id ORDER BY b.language, b.regex_id, c.file;", params)
 		rs       = cur.fetchall()
 		o        = open(htmlfile, 'a')
+		t        = open(tabfile, 'a')
 		html     = "\n\n"
+		tabs     = "\n\nlang\tdescription\tfile\tline\tc.code\n"
 		language = ''
 		regex    = ''
 		count    = 0
-
+		
 		# loop through all results, do some fancy coordination for output
 		for r in rs:
+			tab_lang = r[0].replace("\t"," ").replace("\n","  ").replace("\r","  ")
+			#tab_regex = r[1].replace("\t"," ").replace("\n","  ").replace("\r","  ")
+			tab_desc = r[2].replace("\t"," ").replace("\n","  ").replace("\r","  ")
+			#tab_id = r[3].replace("\t"," ").replace("\n","  ").replace("\r","  ")
+			tab_file = r[4].replace("\t"," ").replace("\n","  ").replace("\r","  ")
+			tab_line = str(r[5])
+			tab_code = r[6].replace("\t"," ").replace("\n","  ").replace("\r","  ")
+		
+			tabs += tab_lang +"\t"+ tab_desc +"\t"+ tab_file +"\t"+ tab_line +"\t"+ tab_code +"\n"
+			
 			if regex != r[1]:
 				if 0 != count:
 					html += '	</div>' + "\n"; # end result set for regex
@@ -600,12 +618,16 @@ def html_report(scan_id):
 
 		if 0 == count:
 			html += '<h3>No bugs found!</h3><div>Contirbute regular expressions to find bugs in this code at <a href="https://grepbugs.com">GrepBugs.com</a></div>';
+			tabs += "No bugs found\n\nContirbute regular expressions to find bugs in this code at https://GrepBugs.com\n";
 		else:
 			html += '	</div>' + "\n"
+			tabs += "\n"
 		
 		html += '</html>'
 		o.write(html)
 		o.close()
+		t.write(tabs)
+		t.close()
 	db.close()
 
 """
