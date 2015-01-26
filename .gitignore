@@ -1,0 +1,8 @@
+
+# Created when GrepBugs runs
+log
+remotesrc
+out
+
+# This is uploaded from the master database  with each run of GrepBugs
+data/grepbugs.json
