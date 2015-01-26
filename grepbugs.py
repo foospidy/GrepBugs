@@ -642,13 +642,16 @@ def html_report(scan_id):
 """
 Handle and process command line arguments
 """
-parser = argparse.ArgumentParser(description='Process some command line arguments.')
-parser.add_argument('-d', help='specify a directory to scan.')
-parser.add_argument('-r', help='specify a repo to scan (e.g. github, bitbucket, or sourceforge).')
-parser.add_argument('-a', help='specify an account for the specified repo.')
-parser.add_argument('-repo_user', help='specify a username to be used in authenticating to the specified repo (default: grepbugs).', default='grepbugs')
-parser.add_argument('-repo_pass', help='specify a password to be used in authenticating to the specified repo (default: grepbugs).', default='grepbugs')
+parser = argparse.ArgumentParser(description='At minimum, the -d or -r options must be specified.')
+parser.add_argument('-d', help='specify a LOCAL directory to scan.')
 parser.add_argument('-f', help='force scan even if project has not been modified since last scan.', default=False, action="store_true")
+
+group = parser.add_argument_group('REMOTE Repository Scanning')
+group.add_argument('-r', help='specify a repo to scan (e.g. github, bitbucket, or sourceforge).')
+group.add_argument('-a', help='specify an account for the specified repo.')
+group.add_argument('-repo_user', help='specify a username to be used in authenticating to the specified repo (default: grepbugs).', default='grepbugs')
+group.add_argument('-repo_pass', help='specify a password to be used in authenticating to the specified repo (default: grepbugs).', default='grepbugs')
+
 args = parser.parse_args()
 
 if None == args.d and None == args.r:
