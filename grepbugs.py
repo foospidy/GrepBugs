@@ -1,5 +1,9 @@
 #!/usr/bin/python
 # GrepBugs.com
+#
+# GrepBugs is licensed under GPL v2.0 or later; please see the main
+# LICENSE file in the installation folder for more information.
+#
 
 import os
 import sys
@@ -29,6 +33,8 @@ if 'darwin' == sys.platform:
 		for filename in filenames:
 			if 'ggrep' == filename:
 				grepbin = os.path.join(root, filename)
+
+# print "Debug: grepbin = " + grepbin  # uncomment to debug your grep path
 
 # setup logging; create directory if it doesn't exist, and configure logging
 if not os.path.exists(os.path.dirname(logfile)):
@@ -366,9 +372,9 @@ def repo_scan(repo, account, force):
 					if True == do_scan:
 						checkout_code(cmd, checkout_url, account, project_name)
 						# scan local files
-						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/src/' + account + '/' + project_name, repo, account, project_name)
+						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account + '/' + project_name, repo, account, project_name)
 						# clean up because of big projects and stuff
-						call(['rm', '-rf', os.path.dirname(os.path.abspath(__file__)) + '/src/' + account + '/' + project_name])
+						call(['rm', '-rf', os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account + '/' + project_name])
 						
 				
 				page += 1
@@ -399,7 +405,7 @@ def repo_scan(repo, account, force):
 					if True == do_scan:
 						checkout_code(cmd, checkout_url, account, project_name)
 						# scan local files
-						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/src/' + account + '/' + project_name, repo, account, project_name)
+						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account + '/' + project_name, repo, account, project_name)
 
 		elif 'sourceforge' == repo:
 			# call api_url
@@ -434,7 +440,7 @@ def repo_scan(repo, account, force):
 					if None != cmd:
 						checkout_code(cmd, checkout_url, account, project_name)
 						# scan local files
-						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/src/' + account + '/' + project_name, repo, account, project_name)
+						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account + '/' + project_name, repo, account, project_name)
 					else:
 						print 'No sourceforge repo for ' + account + ' ' + project_name
 
@@ -442,7 +448,7 @@ def repo_scan(repo, account, force):
 		print 'SCAN COMPLETE!'
 
 def checkout_code(cmd, checkout_url, account, project):
-	account_folder = os.path.dirname(os.path.abspath(__file__)) + '/src/' + account
+	account_folder = os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account
 
 	if not os.path.exists(account_folder):
 		os.makedirs(account_folder)
@@ -538,6 +544,9 @@ def html_report(scan_id):
 		print 'writing report...'
 		htmlfile = os.path.dirname(os.path.abspath(__file__)) + '/out/' + row[0] + '.' + row[1] + '.' + row[2].replace("/", "_") + '.' + row[3] + '.html'
 		tabfile  = os.path.dirname(os.path.abspath(__file__)) + '/out/' + row[0] + '.' + row[1] + '.' + row[2].replace("/", "_") + '.' + row[3] + '.tabs.csv'
+
+		if not os.path.exists(os.path.dirname(htmlfile)):
+			os.makedirs(os.path.dirname(htmlfile))
 		
 		# include repo/account/project link
 		if 'github' == row[0]:
@@ -633,13 +642,16 @@ def html_report(scan_id):
 """
 Handle and process command line arguments
 """
-parser = argparse.ArgumentParser(description='Process some command line arguments.')
-parser.add_argument('-d', help='specify a directory to scan.')
-parser.add_argument('-r', help='specify a repo to scan (e.g. github, bitbucket, or sourceforge).')
-parser.add_argument('-a', help='specify an account for the specified repo.')
-parser.add_argument('-repo_user', help='specify a username to be used in authenticating to the specified repo (default: grepbugs).', default='grepbugs')
-parser.add_argument('-repo_pass', help='specify a password to be used in authenticating to the specified repo (default: grepbugs).', default='grepbugs')
+parser = argparse.ArgumentParser(description='At minimum, the -d or -r options must be specified.')
+parser.add_argument('-d', help='specify a LOCAL directory to scan.')
 parser.add_argument('-f', help='force scan even if project has not been modified since last scan.', default=False, action="store_true")
+
+group = parser.add_argument_group('REMOTE Repository Scanning')
+group.add_argument('-r', help='specify a repo to scan (e.g. github, bitbucket, or sourceforge).')
+group.add_argument('-a', help='specify an account for the specified repo.')
+group.add_argument('-repo_user', help='specify a username to be used in authenticating to the specified repo (default: grepbugs).', default='grepbugs')
+group.add_argument('-repo_pass', help='specify a password to be used in authenticating to the specified repo (default: grepbugs).', default='grepbugs')
+
 args = parser.parse_args()
 
 if None == args.d and None == args.r:

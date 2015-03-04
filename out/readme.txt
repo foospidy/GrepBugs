@@ -1,2 +1,0 @@
-directory for scan reports
-
