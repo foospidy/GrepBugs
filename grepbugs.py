@@ -573,7 +573,7 @@ def last_scan(repo, account, project):
 
 	params = [repo, account, project]
 	if 'mysql' == gbconfig.get('database', 'database'):
-		mysqlcur.executeexecute("SELECT last_scan FROM projects WHERE repo=%s AND account=%s and project=%s;", params)
+		mysqlcur.execute("SELECT last_scan FROM projects WHERE repo=%s AND account=%s and project=%s;", params)
 		rows = mysqlcur.fetchall()
 	else:
 		cur.execute("SELECT last_scan FROM projects WHERE repo=? AND account=? and project=?;", params)
