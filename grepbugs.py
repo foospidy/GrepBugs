@@ -547,16 +547,38 @@ def checkout_code(cmd, checkout_url, account, project):
 		call(['rm', '-rf', os.path.abspath(account_folder + '/tmp/')])
 
 def last_scan(repo, account, project):
-	try:
-		db  = lite.connect(dbfile)
-		cur = db.cursor()
+	if 'mysql' == gbconfig.get('database', 'database'):
+		try:
+			import MySQLdb
+			mysqldb  = MySQLdb.connect(host=gbconfig.get('database', 'host'), user=gbconfig.get('database', 'dbuname'), passwd=gbconfig.get('database', 'dbpword'), db=gbconfig.get('database', 'dbname'))
+			mysqlcur = mysqldb.cursor()
+		except Exception as e:
+			print 'Error connecting to MySQL! See log file for details.'
+			logging.debug('Error connecting to MySQL: ' + str(e))
+			sys.exit(1)
 
-	except lite.Error, e:
-		print 'Error connecting to db file'
-		sys.exit(1)
+	else:
+		try:
+			db  = lite.connect(dbfile)
+			cur = db.cursor()
+			
+			except lite.Error as e:
+			print 'Error connecting to db file! See log file for details.'
+			logging.debug('Error connecting to db file: ' + str(e))
+			sys.exit(1)
+		except Exception as e:
+			print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
+			logging.critical('Unhandled exception: ' + str(e))
+			sys.exit(1)
 
 	params = [repo, account, project]
-	cur.execute("SELECT last_scan FROM projects WHERE repo=? AND account=? and project=?;", params)
+	if 'mysql' == gbconfig.get('database', 'database'):
+		mysqlcur.executeexecute("SELECT last_scan FROM projects WHERE repo=%s AND account=%s and project=%s;", params)
+		rows = mysqlcur.fetchall()
+	else:
+		cur.execute("SELECT last_scan FROM projects WHERE repo=? AND account=? and project=?;", params)
+		rows = cur.fetchall()
+
 	rows      = cur.fetchall()
 	last_scan = None
 	
@@ -564,7 +586,11 @@ def last_scan(repo, account, project):
 		if None != row[0]:
 			last_scan = datetime.datetime.strptime(str(row[0]), "%Y-%m-%d %H:%M:%S")
 
-	db.close()
+	if 'mysql' == gbconfig.get('database', 'database'):
+		mysqldb.close()
+	else:
+		db.close()
+
 	return last_scan
 
 def html_report(scan_id):
