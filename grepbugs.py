@@ -595,7 +595,7 @@ def html_report(scan_id):
 		except Exception as e:
 			print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
 			logging.critical('Unhandled exception: ' + str(e))
-		sys.exit(1)
+			sys.exit(1)
 
 	html   = ''
 	h      = 'ICAgX19fX19fICAgICAgICAgICAgICAgIF9fX18KICAvIF9fX18vX19fX19fXyAgX19fXyAgLyBfXyApX18gIF9fX19fXyBfX19fX18KIC8gLyBfXy8gX19fLyBfIFwvIF9fIFwvIF9fICAvIC8gLyAvIF9fIGAvIF9fXy8KLyAvXy8gLyAvICAvICBfXy8gL18vIC8gL18vIC8gL18vIC8gL18vIChfXyAgKQpcX19fXy9fLyAgIFxfX18vIC5fX18vX19fX18vXF9fLF8vXF9fLCAvX19fXy8KICAgICAgICAgICAgICAvXy8gICAgICAgICAgICAgICAgL19fX18v'
