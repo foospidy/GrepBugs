@@ -579,7 +579,6 @@ def last_scan(repo, account, project):
 		cur.execute("SELECT last_scan FROM projects WHERE repo=? AND account=? and project=?;", params)
 		rows = cur.fetchall()
 
-	rows      = cur.fetchall()
 	last_scan = None
 	
 	for row in rows:
