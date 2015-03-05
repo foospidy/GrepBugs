@@ -562,7 +562,7 @@ def last_scan(repo, account, project):
 			db  = lite.connect(dbfile)
 			cur = db.cursor()
 			
-			except lite.Error as e:
+		except lite.Error as e:
 			print 'Error connecting to db file! See log file for details.'
 			logging.debug('Error connecting to db file: ' + str(e))
 			sys.exit(1)
