@@ -16,7 +16,7 @@ tab-delimited file with a subset of the information is also created.
 Example reports: https://www.grepbugs.com/reports
 
 Configuration:
-The `etc/grepbugs.cfg` file can be used to configure:
+The etc/grepbugs.cfg file can be used to configure:
 - MySQL database (for storing scan results)
 - Path to grep binary
 
