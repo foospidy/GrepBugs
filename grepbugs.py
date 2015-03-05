@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# GrepBugs.com
+# GrepBugs Copyright (c) 2014-2015 GrepBugs.com
 #
 # GrepBugs is licensed under GPL v2.0 or later; please see the main
 # LICENSE file in the installation folder for more information.
@@ -11,20 +11,26 @@ import argparse
 import uuid
 import urllib2
 import json
-import sqlite3 as lite
 import datetime
+import sqlite3 as lite
 from subprocess import call
 import subprocess
 import cgi
 import time
 import logging
+import ConfigParser
 
+cfgfile = os.path.dirname(os.path.abspath(__file__)) + '/etc/grepbugs.cfg'
 dbfile  = os.path.dirname(os.path.abspath(__file__)) + '/data/grepbugs.db'
 gbfile  = os.path.dirname(os.path.abspath(__file__)) + '/data/grepbugs.json'
 logfile = os.path.dirname(os.path.abspath(__file__)) + '/log/grepbugs.log'
 
+# get configuration
+gbconfig  = ConfigParser.ConfigParser()
+gbconfig.read(cfgfile)
+
 # determine which grep binary to use
-grepbin = 'grep'
+grepbin = gbconfig.get('grep', 'binary')
 
 # BSD and OS X grep do not support -P; change this to path to GNU grep; e.g. /usr/local/bin/grep, ggrep, etc.
 # http://www.heystephenwood.com/2013/09/install-gnu-grep-on-mac-osx.html
@@ -54,6 +60,16 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 	logging.info('Starting local scan with scan id ' + scan_id)
 
 	# get db connection
+	if 'mysql' == gbconfig.get('database', 'database'):
+		try:
+			import MySQLdb
+			mysqldb  = MySQLdb.connect(host=gbconfig.get('database', 'host'), user=gbconfig.get('database', 'dbuname'), passwd=gbconfig.get('database', 'dbpword'), db=gbconfig.get('database', 'dbname'))
+			mysqlcur = mysqldb.cursor()
+		except Exception as e:
+			print 'Error connecting to MySQL! See log file for details.'
+			logging.debug('Error connecting to MySQL: ' + str(e))
+			sys.exit(1)
+
 	try:
 		db  = lite.connect(dbfile)
 		cur = db.cursor()
@@ -126,8 +142,12 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 
 		# query database
 		params     = [repo, account, project]
-		cur.execute("SELECT project_id FROM projects WHERE repo=? AND account=? AND project=? LIMIT 1;", params)
-		rows = cur.fetchall()
+		if 'mysql' == gbconfig.get('database', 'database'):
+			mysqlcur.execute("SELECT project_id FROM projects WHERE repo=%s AND account=%s AND project=%s LIMIT 1;", params)
+			rows = mysqlcur.fetchall()
+		else:
+			cur.execute("SELECT project_id FROM projects WHERE repo=? AND account=? AND project=? LIMIT 1;", params)
+			rows = cur.fetchall()
 
 		# assume new project by default
 		newproject = True
@@ -140,16 +160,20 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 		if True == newproject:
 			project_id = str(uuid.uuid1())
 			params     = [project_id, repo, account, project]
-			cur.execute("INSERT INTO projects (project_id, repo, account, project) VALUES (?, ?, ?, ?);", params)
+			if 'mysql' == gbconfig.get('database', 'database'):
+				mysqlcur.execute("INSERT INTO projects (project_id, repo, account, project) VALUES (%s, %s, %s, %s);", params)
+			else:
+				cur.execute("INSERT INTO projects (project_id, repo, account, project) VALUES (?, ?, ?, ?);", params)
 
 		# update database with new scan info
 		params  = [scan_id, project_id]
-		cur.execute("INSERT INTO scans (scan_id, project_id) VALUES (?, ?);", params)
-		db.commit()
-	except lite.Error as e:
-		print 'Error prepping database! See log file for details.'
-		logging.debug('Error with database: ' + str(e))
-		sys.exit(1)
+		if 'mysql' == gbconfig.get('database', 'database'):
+			mysqlcur.execute("INSERT INTO scans (scan_id, project_id) VALUES (%s, %s);", params)
+			mysqldb.commit()
+		else:
+			cur.execute("INSERT INTO scans (scan_id, project_id) VALUES (?, ?);", params)
+			db.commit()
+
 	except Exception as e:
 		print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
 		logging.critical('Unhandled exception: ' + str(e))
@@ -169,6 +193,7 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 		db.commit()
 		f.close
 		os.remove(clocsql)
+
 	except Exception as e:
 		print 'Error executing cloc sql! Aborting scan! See log file for details.'
 		logging.debug('Error executing cloc sql (scan aborted). It is possible there were no results from running cloc.: ' + str(e))
@@ -201,11 +226,16 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 	# execute clock again to get txt output
 	try:
 		params = [cloctxt, scan_id]
-		cur.execute("UPDATE scans SET cloc_out=? WHERE scan_id=?;", params)
-		db.commit()
+		if 'mysql' == gbconfig.get('database', 'database'):
+			mysqlcur.execute("UPDATE scans SET date_time=NOW(), cloc_out=%s WHERE scan_id=%s;", params)
+			mysqldb.commit()
+		else:
+			cur.execute("UPDATE scans SET cloc_out=? WHERE scan_id=?;", params)
+			db.commit()
+
 	except Exception as e:
 		print 'Error saving cloc txt! Aborting scan! See log file for details.'
-		loggin.debug('Error saving cloc txt (scan aborted): ' + str(e))
+		logging.debug('Error saving cloc txt (scan aborted): ' + str(e))
 		return scan_id
 
 	# load json data
@@ -268,8 +298,12 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 							# update database with new results info
 							result_id = str(uuid.uuid1())
 							params    = [result_id, scan_id, greps[i]['language'], greps[i]['id'], greps[i]['regex'], greps[i]['description']]
-							cur.execute("INSERT INTO results (result_id, scan_id, language, regex_id, regex_text, description) VALUES (?, ?, ?, ?, ?, ?);", params)
-							db.commit()
+							if 'mysql' == gbconfig.get('database', 'database'):
+								mysqlcur.execute("INSERT INTO results (result_id, scan_id, language, regex_id, regex_text, description) VALUES (%s, %s, %s, %s, %s, %s);", params)
+								mysqldb.commit()
+							else:
+								cur.execute("INSERT INTO results (result_id, scan_id, language, regex_id, regex_text, description) VALUES (?, ?, ?, ?, ?, ?);", params)
+								db.commit()
 
 							perline = str(result[0]).split("\n")
 							for r in range(0, len(perline) - 1):
@@ -280,24 +314,33 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 									code             = str(rr[1]).split(':', 1)
 									params           = [result_detail_id, result_id, rr[0], code[0], str(code[1]).strip()]
 
-									cur.execute("INSERT INTO results_detail (result_detail_id, result_id, file, line, code) VALUES (?, ?, ?, ?, ?);", params)
+									if 'mysql' == gbconfig.get('database', 'database'):
+										mysqlcur.execute("INSERT INTO results_detail (result_detail_id, result_id, file, line, code) VALUES (%s, %s, %s, %s, %s);", params)
+										mysqldb.commit()
+									else:
+										cur.execute("INSERT INTO results_detail (result_detail_id, result_id, file, line, code) VALUES (?, ?, ?, ?, ?);", params)
+										db.commit()
+
 								except lite.Error, e:
 									print 'SQL error! See log file for details.'
 									logging.debug('SQL error with params ' + str(params) + ' and error ' + str(e))
 								except Exception as e:
 									print 'Error parsing result! See log file for details.'
 									logging.debug('Error parsing result: ' + str(e))
-
-								db.commit()
 							
 					except Exception as e:
 						print 'Error calling grep! See log file for details'
 						logging.debug('Error calling grep: ' + str(e))
 
 	params = [project_id]
-	cur.execute("UPDATE projects SET last_scan=datetime('now') WHERE project_id=?;", params)
-	db.commit()
-	db.close()
+	if 'mysql' == gbconfig.get('database', 'database'):
+		mysqlcur.execute("UPDATE projects SET last_scan=NOW() WHERE project_id=%s;", params)
+		mysqldb.commit()
+		mysqldb.close()
+	else:
+		cur.execute("UPDATE projects SET last_scan=datetime('now') WHERE project_id=?;", params)
+		db.commit()
+		db.close()
 
 	html_report(scan_id)
 
@@ -528,20 +571,42 @@ def html_report(scan_id):
 	"""
 	Create html report for a given scan_id
 	"""
-	try:
-		db  = lite.connect(dbfile)
-		cur = db.cursor()
+	
+	if 'mysql' == gbconfig.get('database', 'database'):
+		try:
+			import MySQLdb
+			mysqldb  = MySQLdb.connect(host=gbconfig.get('database', 'host'), user=gbconfig.get('database', 'dbuname'), passwd=gbconfig.get('database', 'dbpword'), db=gbconfig.get('database', 'dbname'))
+			mysqlcur = mysqldb.cursor()
+		except Exception as e:
+			print 'Error connecting to MySQL! See log file for details.'
+			logging.debug('Error connecting to MySQL: ' + str(e))
+			sys.exit(1)
 
-	except lite.Error, e:
-		print 'Error connecting to db file'
+	else:
+		try:
+			import sqlite3 as lite
+			db  = lite.connect(dbfile)
+			cur = db.cursor()
+
+		except lite.Error as e:
+			print 'Error connecting to db file! See log file for details.'
+			logging.debug('Error connecting to db file: ' + str(e))
+			sys.exit(1)
+		except Exception as e:
+			print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
+			logging.critical('Unhandled exception: ' + str(e))
 		sys.exit(1)
 
 	html   = ''
 	h      = 'ICAgX19fX19fICAgICAgICAgICAgICAgIF9fX18KICAvIF9fX18vX19fX19fXyAgX19fXyAgLyBfXyApX18gIF9fX19fXyBfX19fX18KIC8gLyBfXy8gX19fLyBfIFwvIF9fIFwvIF9fICAvIC8gLyAvIF9fIGAvIF9fXy8KLyAvXy8gLyAvICAvICBfXy8gL18vIC8gL18vIC8gL18vIC8gL18vIChfXyAgKQpcX19fXy9fLyAgIFxfX18vIC5fX18vX19fX18vXF9fLF8vXF9fLCAvX19fXy8KICAgICAgICAgICAgICAvXy8gICAgICAgICAgICAgICAgL19fX18v'
 	params = [scan_id]
 
-	cur.execute("SELECT a.repo, a.account, a.project, b.scan_id, b.date_time, b.cloc_out FROM projects a, scans b WHERE a.project_id=b.project_id AND b.scan_id=? LIMIT 1;", params)
-	rows = cur.fetchall()
+	if 'mysql' == gbconfig.get('database', 'database'):
+		mysqlcur.execute("SELECT a.repo, a.account, a.project, b.scan_id, b.date_time, b.cloc_out FROM projects a, scans b WHERE a.project_id=b.project_id AND b.scan_id=%s LIMIT 1;", params)
+		rows = mysqlcur.fetchall()
+	else:
+		cur.execute("SELECT a.repo, a.account, a.project, b.scan_id, b.date_time, b.cloc_out FROM projects a, scans b WHERE a.project_id=b.project_id AND b.scan_id=? LIMIT 1;", params)
+		rows = cur.fetchall()
 
 	# for loop on rows, but only one row
 	for row in rows:
@@ -577,18 +642,23 @@ def html_report(scan_id):
 				+ "\naccount:  " + row[1]
 				+ "\nproject:  " + row[2] + "   " + link
 				+ "\nscan id:  " + row[3]
-				+ "\ndate:     " + row[4] + "</pre>\n")
+				+ "\ndate:     " + str(row[4]) + "</pre>\n")
 		#o.write("<pre>\n" + str(row[5]).replace("\n", "<br>") + "</pre>")
 		o.write("<pre>\n" + row[5] + "</pre>")
 		o.close()
 		
 		t = open(tabfile, 'w')
 		t.write("GrepBugs\n")
-		t.write("repo:\t" + row[0] + "\naccount:\t" + row[1] + "\nproject:\t" + row[2] + " " + link + "\nscan id:\t" + row[3] + "\ndate:\t" + row[4] + "\n")
+		t.write("repo:\t" + row[0] + "\naccount:\t" + row[1] + "\nproject:\t" + row[2] + " " + link + "\nscan id:\t" + row[3] + "\ndate:\t" + str(row[4]) + "\n")
 		t.close()
 
-		cur.execute("SELECT b.language, b.regex_text, b.description, c.result_detail_id, c.file, c.line, c.code FROM scans a, results b, results_detail c WHERE a.scan_id=? AND a.scan_id=b.scan_id AND b.result_id=c.result_id ORDER BY b.language, b.regex_id, c.file;", params)
-		rs       = cur.fetchall()
+		if 'mysql' == gbconfig.get('database', 'database'):
+			mysqlcur.execute("SELECT b.language, b.regex_text, b.description, c.result_detail_id, c.file, c.line, c.code FROM scans a, results b, results_detail c WHERE a.scan_id=%s AND a.scan_id=b.scan_id AND b.result_id=c.result_id ORDER BY b.language, b.regex_id, c.file;", params)
+			rs = mysqlcur.fetchall()
+		else:
+			cur.execute("SELECT b.language, b.regex_text, b.description, c.result_detail_id, c.file, c.line, c.code FROM scans a, results b, results_detail c WHERE a.scan_id=? AND a.scan_id=b.scan_id AND b.result_id=c.result_id ORDER BY b.language, b.regex_id, c.file;", params)
+			rs = cur.fetchall()
+
 		o        = open(htmlfile, 'a')
 		t        = open(tabfile, 'a')
 		html     = "\n\n"
@@ -657,7 +727,11 @@ def html_report(scan_id):
 		o.close()
 		t.write(tabs)
 		t.close()
-	db.close()
+
+	if 'mysql' == gbconfig.get('database', 'database'):
+		mysqldb.close()
+	else:
+		db.close()
 
 """
 Handle and process command line arguments
