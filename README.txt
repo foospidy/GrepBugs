@@ -36,3 +36,46 @@ Dependencies:
 - svn (https://subversion.apache.org/)
   - On Debian run: apt-get install subversion
   - On OSX, configure Xcode command line tools
+
+Creating MySQL Database:
+Create a database and run the following create statements:
+
+CREATE TABLE `projects` (
+  `project_id` varchar(36) NOT NULL,
+  `repo` varchar(50) NOT NULL,
+  `account` varchar(50) NOT NULL,
+  `project` varchar(100) DEFAULT NULL,
+  `last_scan` datetime DEFAULT NULL,
+  PRIMARY KEY (`project_id`),
+  KEY `idx_account` (`account`)
+);
+
+CREATE TABLE `results` (
+  `result_id` varchar(36) NOT NULL,
+  `scan_id` varchar(36) NOT NULL,
+  `language` varchar(50) DEFAULT NULL,
+  `regex_id` int(11) DEFAULT NULL,
+  `regex_text` text,
+  `description` text,
+  PRIMARY KEY (`result_id`),
+  KEY `idx_scan_id` (`scan_id`)
+);
+
+CREATE TABLE `results_detail` (
+  `result_detail_id` varchar(36) NOT NULL,
+  `result_id` varchar(36) NOT NULL,
+  `file` text,
+  `line` int(11) DEFAULT NULL,
+  `code` text,
+  PRIMARY KEY (`result_detail_id`),
+  KEY `idx_result_id` (`result_id`)
+);
+
+CREATE TABLE `scans` (
+  `scan_id` varchar(36) NOT NULL,
+  `project_id` varchar(36) DEFAULT NULL,
+  `date_time` datetime DEFAULT NULL,
+  `cloc_out` text,
+  PRIMARY KEY (`scan_id`),
+  KEY `idx_project_id` (`project_id`)
+);
