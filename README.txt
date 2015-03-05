@@ -15,6 +15,11 @@ tab-delimited file with a subset of the information is also created.
 
 Example reports: https://www.grepbugs.com/reports
 
+Configuration:
+The `etc/grepbugs.cfg` file can be used to configure:
+- MySQL database (for storing scan results)
+- Path to grep binary
+
 Dependencies:
 - GNU grep (http://www.gnu.org/software/grep/)
   - On Debian run: apt-get install grep
