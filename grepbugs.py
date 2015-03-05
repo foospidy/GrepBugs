@@ -67,47 +67,51 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 		logging.critical('Unhandled exception: ' + str(e))
 		sys.exit(1)
 
-	# get latest greps
-	try:
-		url = 'https://grepbugs.com/json'
-		print 'retreiving rules...'
-		logging.info('Retreiving rules from ' + url)
+	if args.u == True:
+		print 'Scanning with existing rules set'
+		logging.info('Scanning with existing rules set')
+	else:
+		# get latest greps
+		try:
+			url = 'https://grepbugs.com/json'
+			print 'retreiving rules...'
+			logging.info('Retreiving rules from ' + url)
 
-		# if request fails, try 3 times
-		count     = 0
-		max_tries = 3
-		while count < max_tries:
-			try:
-				request = urllib2.Request(url)
-				request.add_header('User-agent', 'GrepBugs for Python (1.0)')
-				
-				response = urllib2.urlopen(request)
-				j        = response.read()
+			# if request fails, try 3 times
+			count     = 0
+			max_tries = 3
+			while count < max_tries:
+				try:
+					request = urllib2.Request(url)
+					request.add_header('User-agent', 'GrepBugs for Python (1.0)')
+					
+					response = urllib2.urlopen(request)
+					j        = response.read()
 
-				with open(gbfile, 'wb') as jsonfile:
-					jsonfile.write(j)
+					with open(gbfile, 'wb') as jsonfile:
+						jsonfile.write(j)
 
-				# no exceptions so break out of while loop
-				break
-			except urllib2.URLError as e:
-				count = count + 1
-				if count <= max_tries:
-					logging.warning('Error retreiving grep rules (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
-					time.sleep(3)
+					# no exceptions so break out of while loop
+					break
+				except urllib2.URLError as e:
+					count = count + 1
+					if count <= max_tries:
+						logging.warning('Error retreiving grep rules (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
+						time.sleep(3)
 
-			except Exception as e:
-				print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
-				logging.critical('Unhandled exception: ' + str(e))
-				sys.exit(1)
+				except Exception as e:
+					print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
+					logging.critical('Unhandled exception: ' + str(e))
+					sys.exit(1)
 
-		if count == max_tries:
-			# grep rules were not retrieved, could be working with old rules.
-			logging.debug('Error retreiving grep rules (no more tries left. could be using old grep rules.): ' + str(e))
-				
-	except Exception as e:
-		print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
-		logging.critical('Unhandled exception: ' + str(e))
-		sys.exit(1)
+			if count == max_tries:
+				# grep rules were not retrieved, could be working with old rules.
+				logging.debug('Error retreiving grep rules (no more tries left. could be using old grep rules.): ' + str(e))
+					
+		except Exception as e:
+			print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
+			logging.critical('Unhandled exception: ' + str(e))
+			sys.exit(1)
 
 	# prep db for capturing scan results
 	try:
@@ -557,9 +561,25 @@ def html_report(scan_id):
 			link             = '';
 
 		o = open(htmlfile, 'w')
-		o.write("<!DOCTYPE html><pre>\n" + h.decode('base64') + "</pre>")
-		o.write("<pre>\n" + "repo: " + row[0] + "\naccount: " + row[1] + "\nproject: " + row[2] + " " + link + "\nscan id: " + row[3] + "\ndate: " + row[4] + "</pre>\n")
-		o.write("<pre>\n" + str(row[5]).replace("\n", "<br>") + "</pre>")
+		o.write("""<!DOCTYPE html><head>
+<style>
+	pre { font-size: 90%; }
+	.t { color: darkgreen;  font-size: 150%;  font-weight: 900; text-shadow: 3px 3px darkgreen; }    /* title */
+	h3 { margin-left: 15px;    font-variant: small-caps; } /* language */
+	.d { margin-left:15px;   color: darkred; }    /* descriptive problem */
+	.r { font-weight:bold;      margin-left:15px; }    /* regex */
+	pre.f { margin-left: 50px; }  /* finding */
+	pre.f span {color: grey; }  /* finding title */
+</style></head><body>""")
+		o.write("<pre class=\"t\">\n" + h.decode('base64') + "</pre>")
+		o.write("\n\n<pre>"
+				+ "\nrepo:     " + row[0]
+				+ "\naccount:  " + row[1]
+				+ "\nproject:  " + row[2] + "   " + link
+				+ "\nscan id:  " + row[3]
+				+ "\ndate:     " + row[4] + "</pre>\n")
+		#o.write("<pre>\n" + str(row[5]).replace("\n", "<br>") + "</pre>")
+		o.write("<pre>\n" + row[5] + "</pre>")
 		o.close()
 		
 		t = open(tabfile, 'w')
@@ -594,12 +614,12 @@ def html_report(scan_id):
 					html += '	</div>' + "\n"; # end result set for regex
 
 			if language != r[0]:
-				html += '<h4 style="margin-left:15px;">' + r[0] + '</h4>' + "\n"
+				html += '<h3>' + r[0] + '</h3>' + "\n"
 
 			if regex != r[1]:
-				html += '	<div style="margin-left:15px;"><a style="cursor: pointer;" onclick="javascript:o=document.getElementById(\'r' + str(r[3]) + '\');if(o.style.display==\'none\'){ o.style.display=\'block\';} else {o.style.display=\'none\';}">+ ' + r[2] + "</a></div>\n"
+				html += '	<div class="d"><a style="cursor: pointer;" onclick="javascript:o=document.getElementById(\'r' + str(r[3]) + '\');if(o.style.display==\'none\'){ o.style.display=\'block\';} else {o.style.display=\'none\';}">+ ' + r[2] + "</a></div>\n"
 				html += '	<div id="r' + str(r[3]) + '" style="display:none;margin-left:15px;">' + "\n" # description
-				html += '		<div style="font-weight:bold;margin-left:15px;"><pre>' +  cgi.escape(r[1]) + '</pre></div>' + "\n" #regex
+				html += '		<div class="r"><pre>' +  cgi.escape(r[1]) + '</pre></div>' + "\n" #regex
 
 			# determine the number of occurrences of account in the path, set begin to the position to the last occurrence
 			account_occurrences = r[4].count(row[1])
@@ -619,15 +639,15 @@ def html_report(scan_id):
 				ltrim_by    = row[2]
 				ltrim_begin = 0
 
-			html += '		<pre style="margin-left:50px;"><span style="color:gray;">' + r[4][r[4].index(ltrim_by, ltrim_begin):] + ' ' + file_link + ':</span> &nbsp; ' + cgi.escape(r[6]) + '</pre>' + "\n" # finding
+			html += '		<pre class="f"><span>' + r[4][r[4].index(ltrim_by, ltrim_begin):] + ' ' + file_link + ':</span> &nbsp; ' + cgi.escape(r[6]) + '</pre>' + "\n" # finding
 
 			count   += 1
 			language = r[0]
 			regex    = r[1]
 
 		if 0 == count:
-			html += '<h3>No bugs found!</h3><div>Contirbute regular expressions to find bugs in this code at <a href="https://grepbugs.com">GrepBugs.com</a></div>';
-			tabs += "No bugs found\n\nContirbute regular expressions to find bugs in this code at https://GrepBugs.com\n";
+			html += '<h3>No bugs found!</h3><div>Contribute regular expressions to find bugs in this code at <a href="https://grepbugs.com">GrepBugs.com</a></div>';
+			tabs += "No bugs found\n\nContribute regular expressions to find bugs in this code at https://GrepBugs.com\n";
 		else:
 			html += '	</div>' + "\n"
 			tabs += "\n"
@@ -645,6 +665,7 @@ Handle and process command line arguments
 parser = argparse.ArgumentParser(description='At minimum, the -d or -r options must be specified.')
 parser.add_argument('-d', help='specify a LOCAL directory to scan.')
 parser.add_argument('-f', help='force scan even if project has not been modified since last scan.', default=False, action="store_true")
+parser.add_argument('-u', help='Use existing rules, do not download updated set.', default=False, action="store_true")
 
 group = parser.add_argument_group('REMOTE Repository Scanning')
 group.add_argument('-r', help='specify a repo to scan (e.g. github, bitbucket, or sourceforge).')
