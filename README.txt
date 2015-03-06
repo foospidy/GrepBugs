@@ -39,8 +39,9 @@ Dependencies:
 
 - MySQL support
   - On Debian run:
-    - apt-get install libmysqlclient-dev
-    - pip install MySQL-python
+    - apt-get install python-mysqldb, if this does not work then try:
+      - apt-get install libmysqlclient-dev
+      - pip install MySQL-python
 
 Creating MySQL Database:
 Create a database and run the following create statements.
