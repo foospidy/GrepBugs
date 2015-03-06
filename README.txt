@@ -37,8 +37,13 @@ Dependencies:
   - On Debian run: apt-get install subversion
   - On OSX, configure Xcode command line tools
 
+- MySQL support
+  - On Debian run:
+    - apt-get install libmysqlclient-dev
+    - pip install MySQL-python
+
 Creating MySQL Database:
-Create a database and run the following create statements:
+Create a database and run the following create statements.
 
 CREATE TABLE `projects` (
   `project_id` varchar(36) NOT NULL,
