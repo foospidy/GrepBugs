@@ -46,7 +46,7 @@ if 'darwin' == sys.platform:
 if not os.path.exists(os.path.dirname(logfile)):
 	os.makedirs(os.path.dirname(logfile))
 
-logging.basicConfig(filename=logfile, level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+logging.basicConfig(filename=logfile, level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
 def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 	"""
