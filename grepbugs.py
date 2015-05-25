@@ -9,7 +9,8 @@ import os
 import sys
 import argparse
 import uuid
-import urllib2
+import requests
+#import urllib2
 import json
 import datetime
 import sqlite3 as lite
@@ -98,23 +99,34 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 			max_tries = 3
 			while count < max_tries:
 				try:
-					request = urllib2.Request(url)
-					request.add_header('User-agent', 'GrepBugs for Python (1.0)')
-					
-					response = urllib2.urlopen(request)
-					j        = response.read()
+					headers = {'User-agent': 'GrepBugs for Python (1.0)'}
+					r       = requests.get(url, headers=headers)
 
 					with open(gbfile, 'wb') as jsonfile:
-						jsonfile.write(j)
+						jsonfile.write(r.text)
+
+					print 'got rules!'
 
 					# no exceptions so break out of while loop
 					break
-				except urllib2.URLError as e:
+				except requests.ConnectionError as e:
 					count = count + 1
 					if count <= max_tries:
-						logging.warning('Error retreiving grep rules (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
+						logging.warning('Error retreiving grep rules: ConnectionError (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
 						time.sleep(3)
-
+				
+				except requests.HTTPError as e:
+					count = count + 1
+					if count <= max_tries:
+						logging.warning('Error retreiving grep rules: HTTPError (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
+						time.sleep(3)
+			
+				except requests.Timeout as e:
+					count = count + 1
+					if count <= max_tries:
+						logging.warning('Error retreiving grep rules: Timeout (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
+						time.sleep(3)
+				
 				except Exception as e:
 					print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
 					logging.critical('Unhandled exception: ' + str(e))
@@ -376,14 +388,27 @@ def repo_scan(repo, account, force):
 			logging.info('Calling github api for ' + api_url)
 			while count < max_tries:
 				try:
-					data = json.load(urllib2.urlopen(api_url + '?page=' + str(page) + '&per_page=100'))
+					r    = requests.get(api_url + '?page=' + str(page) + '&per_page=100')
+					data = r.json()
 
 					# no exceptions so break out of while loop
 					break
-				except urllib2.URLError as e:
+				except requests.ConnectionError as e:
 					count = count + 1
 					if count <= max_tries:
-						logging.warning('Error calling github api (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
+						logging.warning('Error retreiving grep rules: ConnectionError (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
+						time.sleep(3) # take a break, throttle a bit
+				
+				except requests.HTTPError as e:
+					count = count + 1
+					if count <= max_tries:
+						logging.warning('Error retreiving grep rules: HTTPError (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
+						time.sleep(3) # take a break, throttle a bit
+			
+				except requests.Timeout as e:
+					count = count + 1
+					if count <= max_tries:
+						logging.warning('Error retreiving grep rules: Timeout (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
 						time.sleep(3) # take a break, throttle a bit
 
 				except Exception as e:
@@ -423,13 +448,15 @@ def repo_scan(repo, account, force):
 						# clean up because of big projects and stuff
 						call(['rm', '-rf', os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account + '/' + project_name])
 						
-				
+				# get next page of projects
 				page += 1
-				data = json.load(urllib2.urlopen(api_url + '?page=' + str(page) + '&per_page=100')) # get next page of projects
+				r    = requests.get(api_url + '?page=' + str(page) + '&per_page=100')
+				data = r.json()
 
 		elif 'bitbucket' == repo:
 			# call api_url
-			data = json.load(urllib2.urlopen(api_url))
+			r    = requests.get(api_url)
+			data = r.json()
 			
 			for j in range(0, len(data["values"])):
 				value =  data["values"][j]
@@ -456,13 +483,15 @@ def repo_scan(repo, account, force):
 
 		elif 'sourceforge' == repo:
 			# call api_url
-			data = json.load(urllib2.urlopen(api_url))
+			r    = requests.get(api_url)
+			data = r.json()
 			
 			for i in data['projects']:
 				do_scan      = True
 				project_name = i["url"].replace('/p/', '').replace('/', '')
 				cmd          = None 
-				project_json = json.load(urllib2.urlopen('https://sourceforge.net/rest' + i['url']))
+				r            = requests.get('https://sourceforge.net/rest' + i['url'])
+				project_json = r.json()
 				for j in project_json:
 					for t in project_json['tools']:
 						if 'code' == t['mount_point']:
