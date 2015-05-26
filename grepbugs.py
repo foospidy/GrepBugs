@@ -7,10 +7,10 @@
 
 import os
 import sys
+import shutil
 import argparse
 import uuid
 import requests
-#import urllib2
 import json
 import datetime
 import sqlite3 as lite
@@ -521,6 +521,8 @@ def repo_scan(repo, account, force):
 						print 'No sourceforge repo for ' + account + ' ' + project_name
 
 		db.close()
+		# clean up
+		shutil.rmtree(os.path.abspath(__file__)) + '/remotesrc/' + account)
 		print 'SCAN COMPLETE!'
 
 def checkout_code(cmd, checkout_url, account, project):
