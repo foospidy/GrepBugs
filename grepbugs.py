@@ -522,7 +522,7 @@ def repo_scan(repo, account, force):
 
 		db.close()
 		# clean up
-		shutil.rmtree(os.path.abspath(__file__)) + '/remotesrc/' + account)
+		shutil.rmtree(os.path.abspath(__file__) + '/remotesrc/' + account)
 		print 'SCAN COMPLETE!'
 
 def checkout_code(cmd, checkout_url, account, project):
