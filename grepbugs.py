@@ -482,6 +482,10 @@ def repo_scan(repo, account, force):
 						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account + '/' + project_name, repo, account, project_name)
 
 		elif 'sourceforge' == repo:
+			message = 'Support for sourceforge removed because http://seclists.org/nmap-dev/2015/q2/194. You should move your project to github.'
+			logging.debug(message)
+			print message
+			"""
 			# call api_url
 			r    = requests.get(api_url)
 			data = r.json()
@@ -519,6 +523,7 @@ def repo_scan(repo, account, force):
 						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account + '/' + project_name, repo, account, project_name)
 					else:
 						print 'No sourceforge repo for ' + account + ' ' + project_name
+			"""
 
 		db.close()
 		# clean up
