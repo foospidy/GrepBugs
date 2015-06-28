@@ -756,16 +756,9 @@ def html_report(scan_id):
 				html += '	<div id="r' + str(r[3]) + '" style="display:none;margin-left:15px;">' + "\n" # description
 				html += '		<div class="r"><pre>' +  cgi.escape(r[1]) + '</pre></div>' + "\n" #regex
 
-			# determine the number of occurrences of account in the path, set begin to the position to the last occurrence
-			account_occurrences = r[4].count(row[1])
-			begin               = 0			
-			for occurance in range(0, account_occurrences):
-				begin = r[4].index(row[1], begin)
-				if(account_occurrences > 1 and occurance + 1 != account_occurrences):
-					begin = begin + 1
-			
 			# include repo/account/project/file link
 			if 'github' == row[0]:
+				begin       = r[4].index('GrepBugs/remotesrc') + len('GrepBugs/remotesrc') # determine beginning position of repo path 
 				file_link   = '<a href="https://github.com/' + r[4][r[4].index(row[1], begin):].replace(row[1] + '/' + row[2] + '/', row[1] + '/' + row[2] + '/blob/master/') + '#L' + str(r[5]) + '" target="_new">' + str(r[5]) + '</a>'
 				ltrim_by    = row[1]
 				ltrim_begin = begin
