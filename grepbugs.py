@@ -424,12 +424,13 @@ def repo_scan(repo, account, force):
 			while len(data):
 				print 'Get page: ' + str(page)
 				for i in range(0, len(data)):
-					do_scan      = True
-					project_name = data[i]["name"]
-					last_scanned = last_scan(repo, account, project_name)
-					last_changed = datetime.datetime.strptime(data[i]['pushed_at'], "%Y-%m-%dT%H:%M:%SZ")
-					checkout_url = 'https://github.com/' + account + '/' + project_name + '.git'
-					cmd          = 'git'
+					do_scan        = True
+					project_name   = data[i]["name"]
+					default_branch = data[i]["default_branch"]
+					last_scanned   = last_scan(repo, account, project_name)
+					last_changed   = datetime.datetime.strptime(data[i]['pushed_at'], "%Y-%m-%dT%H:%M:%SZ")
+					checkout_url   = 'https://github.com/' + account + '/' + project_name + '.git'
+					cmd            = 'git'
 
 					print project_name + ' last changed on ' + str(last_changed) + ' and last scanned on ' + str(last_scanned)
 
