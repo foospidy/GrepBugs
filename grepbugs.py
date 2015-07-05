@@ -49,7 +49,7 @@ if not os.path.exists(os.path.dirname(logfile)):
 
 logging.basicConfig(filename=logfile, level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
-def local_scan(srcdir, repo='none', account='local_scan', project='none'):
+def local_scan(srcdir, repo='none', account='local_scan', project='none', default_branch='none'):
 	"""
 	Perform a scan of local files
 	"""
@@ -171,11 +171,11 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 
 		if True == newproject:
 			project_id = str(uuid.uuid1())
-			params     = [project_id, repo, account, project]
+			params     = [project_id, repo, account, project, default_branch]
 			if 'mysql' == gbconfig.get('database', 'database'):
-				mysqlcur.execute("INSERT INTO projects (project_id, repo, account, project) VALUES (%s, %s, %s, %s);", params)
+				mysqlcur.execute("INSERT INTO projects (project_id, repo, account, project, default_branch) VALUES (%s, %s, %s, %s, %s);", params)
 			else:
-				cur.execute("INSERT INTO projects (project_id, repo, account, project) VALUES (?, ?, ?, ?);", params)
+				cur.execute("INSERT INTO projects (project_id, repo, account, project, default_branch) VALUES (?, ?, ?, ?, ?);", params)
 
 		# update database with new scan info
 		params  = [scan_id, project_id]
@@ -445,7 +445,7 @@ def repo_scan(repo, account, force):
 					if True == do_scan:
 						checkout_code(cmd, checkout_url, account, project_name)
 						# scan local files
-						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account + '/' + project_name, repo, account, project_name)
+						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account + '/' + project_name, repo, account, project_name, default_branch)
 						# clean up because of big projects and stuff
 						call(['rm', '-rf', os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account + '/' + project_name])
 						
