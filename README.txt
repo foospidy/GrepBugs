@@ -55,6 +55,7 @@ CREATE TABLE `projects` (
   `repo` varchar(50) NOT NULL,
   `account` varchar(50) NOT NULL,
   `project` varchar(100) DEFAULT NULL,
+  `default_branch` varchar(50) DEFAULT NULL,
   `last_scan` datetime DEFAULT NULL,
   PRIMARY KEY (`project_id`),
   KEY `idx_account` (`account`)
