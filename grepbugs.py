@@ -391,14 +391,14 @@ def repo_scan(repo, account, force):
 					r    = requests.get(api_url + '?page=' + str(page) + '&per_page=100')
 					
 					if 200 != r.status_code:
-						raise RequestError('Request failed!', r.status_code)
+						raise ValueError('Request failed!', r.status_code)
 
 					data = r.json()
 
 					# no exceptions so break out of while loop
 					break
 				
-				except RequestError as e:
+				except ValueError as e:
 					count = count + 1
 					logging.debug(str(e.args))
 					time.sleep(5)
