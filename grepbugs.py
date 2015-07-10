@@ -49,7 +49,7 @@ if not os.path.exists(os.path.dirname(logfile)):
 
 logging.basicConfig(filename=logfile, level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
-def local_scan(srcdir, repo='none', account='local_scan', project='none', default_branch='none'):
+def local_scan(srcdir, repo='none', account='local_scan', project='none', default_branch='none', no_reports=False):
 	"""
 	Perform a scan of local files
 	"""
@@ -354,11 +354,12 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none', defaul
 		db.commit()
 		db.close()
 
-	html_report(scan_id)
+	if not no_reports:
+		html_report(scan_id)
 
 	return scan_id
 
-def repo_scan(repo, account, force):
+def repo_scan(repo, account, force, no_reports):
 	"""
 	Check code out from a remote repo and scan import
 	"""
@@ -455,7 +456,7 @@ def repo_scan(repo, account, force):
 					if True == do_scan:
 						checkout_code(cmd, checkout_url, account, project_name)
 						# scan local files
-						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account + '/' + project_name, repo, account, project_name, default_branch)
+						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account + '/' + project_name, repo, account, project_name, default_branch, no_reports)
 						# clean up because of big projects and stuff
 						call(['rm', '-rf', os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account + '/' + project_name])
 						
@@ -490,7 +491,7 @@ def repo_scan(repo, account, force):
 					if True == do_scan:
 						checkout_code(cmd, checkout_url, account, project_name)
 						# scan local files
-						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account + '/' + project_name, repo, account, project_name)
+						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account + '/' + project_name, repo, account, project_name, 'none', no_reports)
 
 		elif 'sourceforge' == repo:
 			message = 'Support for sourceforge removed because http://seclists.org/nmap-dev/2015/q2/194. You should move your project to github.'
@@ -815,6 +816,7 @@ group.add_argument('-r', help='specify a repo to scan (e.g. github, bitbucket, o
 group.add_argument('-a', help='specify an account for the specified repo.')
 group.add_argument('-repo_user', help='specify a username to be used in authenticating to the specified repo (default: grepbugs).', default='grepbugs')
 group.add_argument('-repo_pass', help='specify a password to be used in authenticating to the specified repo (default: grepbugs).', default='grepbugs')
+parser.add_argument('-no_reports', help='Do not generate reports, only store results in the database.', default=False, action="store_true")
 
 args = parser.parse_args()
 
@@ -831,4 +833,4 @@ elif None != args.r:
 		sys.exit(1)
 
 	print 'scan repo: ' + args.r + ' ' + args.a
-	scan_id = repo_scan(args.r, args.a, args.f)
+	scan_id = repo_scan(args.r, args.a, args.f, args.no_reports)
