@@ -9,6 +9,7 @@ python grepbugs.py -r github -a <account>
 python grepbugs.py -r github -a <account> -f
 
 The latest regular expressions will be pulled from https://www.grepbugs.com
+You can now sign-in at https://grepbugs.com/login to contribute regex rules.
 
 A basic HTML report will be generated in the out/ directory.  A 
 tab-delimited file with a subset of the information is also created.
