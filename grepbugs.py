@@ -89,57 +89,7 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none', defaul
 		logging.info('Scanning with existing rules set')
 	else:
 		# get latest greps
-		try:
-			url = 'https://grepbugs.com/json'
-			print 'retreiving rules...'
-			logging.info('Retreiving rules from ' + url)
-
-			# if request fails, try 3 times
-			count     = 0
-			max_tries = 3
-			while count < max_tries:
-				try:
-					headers = {'User-agent': 'GrepBugs for Python (1.0)'}
-					r       = requests.get(url, headers=headers)
-
-					with open(gbfile, 'wb') as jsonfile:
-						jsonfile.write(r.text)
-
-					print 'got rules!'
-
-					# no exceptions so break out of while loop
-					break
-				except requests.ConnectionError as e:
-					count = count + 1
-					if count <= max_tries:
-						logging.warning('Error retreiving grep rules: ConnectionError (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
-						time.sleep(3)
-				
-				except requests.HTTPError as e:
-					count = count + 1
-					if count <= max_tries:
-						logging.warning('Error retreiving grep rules: HTTPError (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
-						time.sleep(3)
-			
-				except requests.Timeout as e:
-					count = count + 1
-					if count <= max_tries:
-						logging.warning('Error retreiving grep rules: Timeout (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
-						time.sleep(3)
-				
-				except Exception as e:
-					print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
-					logging.critical('Unhandled exception: ' + str(e))
-					sys.exit(1)
-
-			if count == max_tries:
-				# grep rules were not retrieved, could be working with old rules.
-				logging.debug('Error retreiving grep rules (no more tries left. could be using old grep rules.): ' + str(e))
-					
-		except Exception as e:
-			print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
-			logging.critical('Unhandled exception: ' + str(e))
-			sys.exit(1)
+		download_rules()
 
 	# prep db for capturing scan results
 	try:
@@ -545,6 +495,70 @@ def repo_scan(repo, account, force, no_reports):
 			logging.debug('Error removing directory: ' + str(e))
 		
 		print 'SCAN COMPLETE!'
+
+def download_rules():
+	url     = gbconfig.get('rules', 'url')
+	
+	logging.info('Retreiving rules from ' + url)
+	print 'attempting to retreive rules...'
+	
+	try:
+		# if request fails, try 3 times
+		count     = 0
+		max_tries = 3
+		while count < max_tries:
+			try:
+				headers = {'User-agent': 'GrepBugs for Python (1.0)'}
+				r       = requests.get(url, headers=headers)
+
+				with open(gbfile, 'wb') as jsonfile:
+					jsonfile.write(r.text)
+
+				print 'got rules!'
+
+				# no exceptions so break out of while loop
+				break
+			except requests.ConnectionError as e:
+				count = count + 1
+				if count <= max_tries:
+					logging.warning('Error retreiving grep rules: ConnectionError (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
+					time.sleep(3)
+			
+			except requests.HTTPError as e:
+				count = count + 1
+				if count <= max_tries:
+					logging.warning('Error retreiving grep rules: HTTPError (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
+					time.sleep(3)
+		
+			except requests.Timeout as e:
+				count = count + 1
+				if count <= max_tries:
+					logging.warning('Error retreiving grep rules: Timeout (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
+					time.sleep(3)
+			
+			except Exception as e:
+				print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
+				logging.critical('Unhandled exception: ' + str(e))
+				sys.exit(1)
+
+		if count == max_tries:
+			# method of last resort!
+			print 'attempting download method of last resort...'
+			proc = subprocess.Popen(["which", "wget"], stdout=subprocess.PIPE)
+			out  = proc.communicate()
+			wget = str(out[0]).split("\n")
+			
+			if '' != wget[0].strip():
+				proc = subprocess.Popen([wget[0], "-O", gbfile, url], stdout=subprocess.PIPE)
+				out  = proc.communicate()
+			else:
+				# grep rules were not retrieved, could be working with old rules.
+				logging.debug('Error retreiving grep rules (no more tries left. could be using old grep rules.): ' + str(e))
+
+	except Exception as e:
+		print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
+		logging.critical('Unhandled exception: ' + str(e))
+		sys.exit(1)
 
 def checkout_code(cmd, checkout_url, account, project):
 	account_folder = os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account
