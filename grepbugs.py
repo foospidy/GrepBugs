@@ -575,8 +575,13 @@ def checkout_code(cmd, checkout_url, account, project):
 		# the clone command will be prompted for credentials. The default credentials are intended
 		# to fail auth in this scenario.
 		split_checkout_url = checkout_url.split('://')
+		
+		# repos with large history can take a long time to clone due to the "receiving objects/resolving deltas" 
+		# phase. To help reduce the time it takes to complete cloning they argument --depth=1 will be used. This
+		# should become a command argument to grepbugs.py in the future.
+		
 		print 'git clone...'
-		call(['git', 'clone', split_checkout_url[0] + '://' + args.repo_user + ':' + args.repo_pass + '@' + split_checkout_url[1], account_folder + '/' + project])
+		call(['git', 'clone', '--depth=1', split_checkout_url[0] + '://' + args.repo_user + ':' + args.repo_pass + '@' + split_checkout_url[1], account_folder + '/' + project])
 	elif 'svn' == cmd:
 		# need to do a lot of craziness for svn, no wonder people use git now.
 		print 'svn checkout...'
