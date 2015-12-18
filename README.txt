@@ -31,10 +31,12 @@ Dependencies:
   - On OSX run: brew install cloc
 
 - git (http://git-scm.com/)
+  - Only required if you want to do repo scanning
   - On Debian run: apt-get install git
   - On OSX, configure Xcode command line tools
 
 - svn (https://subversion.apache.org/)
+  - Only required if you want to do repo scanning
   - On Debian run: apt-get install subversion
   - On OSX, configure Xcode command line tools
 
