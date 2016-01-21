@@ -9,6 +9,7 @@ python grepbugs.py -r github -a <account>
 python grepbugs.py -r github -a <account> -f
 
 The latest regular expressions will be pulled from https://www.grepbugs.com
+You can now sign-in at https://grepbugs.com/login to contribute regex rules.
 
 A basic HTML report will be generated in the out/ directory.  A 
 tab-delimited file with a subset of the information is also created.
@@ -30,10 +31,12 @@ Dependencies:
   - On OSX run: brew install cloc
 
 - git (http://git-scm.com/)
+  - Only required if you want to do repo scanning
   - On Debian run: apt-get install git
   - On OSX, configure Xcode command line tools
 
 - svn (https://subversion.apache.org/)
+  - Only required if you want to do repo scanning
   - On Debian run: apt-get install subversion
   - On OSX, configure Xcode command line tools
 
@@ -43,6 +46,10 @@ Dependencies:
       - apt-get install libmysqlclient-dev
       - pip install MySQL-python
 
+- requests (http://docs.python-requests.org/en/latest/)
+  - On Debian run:
+    - apt-get install python-requests or pip install requests
+    
 Creating MySQL Database:
 Create a database and run the following create statements.
 
@@ -51,6 +58,7 @@ CREATE TABLE `projects` (
   `repo` varchar(50) NOT NULL,
   `account` varchar(50) NOT NULL,
   `project` varchar(100) DEFAULT NULL,
+  `default_branch` varchar(50) DEFAULT NULL,
   `last_scan` datetime DEFAULT NULL,
   PRIMARY KEY (`project_id`),
   KEY `idx_account` (`account`)

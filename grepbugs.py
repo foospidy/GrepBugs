@@ -7,9 +7,10 @@
 
 import os
 import sys
+import shutil
 import argparse
 import uuid
-import urllib2
+import requests
 import json
 import datetime
 import sqlite3 as lite
@@ -48,7 +49,7 @@ if not os.path.exists(os.path.dirname(logfile)):
 
 logging.basicConfig(filename=logfile, level=logging.DEBUG, format='%(asctime)s %(levelname)s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 
-def local_scan(srcdir, repo='none', account='local_scan', project='none'):
+def local_scan(srcdir, repo='none', account='local_scan', project='none', default_branch='none', no_reports=False):
 	"""
 	Perform a scan of local files
 	"""
@@ -88,46 +89,7 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 		logging.info('Scanning with existing rules set')
 	else:
 		# get latest greps
-		try:
-			url = 'https://grepbugs.com/json'
-			print 'retreiving rules...'
-			logging.info('Retreiving rules from ' + url)
-
-			# if request fails, try 3 times
-			count     = 0
-			max_tries = 3
-			while count < max_tries:
-				try:
-					request = urllib2.Request(url)
-					request.add_header('User-agent', 'GrepBugs for Python (1.0)')
-					
-					response = urllib2.urlopen(request)
-					j        = response.read()
-
-					with open(gbfile, 'wb') as jsonfile:
-						jsonfile.write(j)
-
-					# no exceptions so break out of while loop
-					break
-				except urllib2.URLError as e:
-					count = count + 1
-					if count <= max_tries:
-						logging.warning('Error retreiving grep rules (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
-						time.sleep(3)
-
-				except Exception as e:
-					print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
-					logging.critical('Unhandled exception: ' + str(e))
-					sys.exit(1)
-
-			if count == max_tries:
-				# grep rules were not retrieved, could be working with old rules.
-				logging.debug('Error retreiving grep rules (no more tries left. could be using old grep rules.): ' + str(e))
-					
-		except Exception as e:
-			print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
-			logging.critical('Unhandled exception: ' + str(e))
-			sys.exit(1)
+		download_rules()
 
 	# prep db for capturing scan results
 	try:
@@ -159,11 +121,11 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 
 		if True == newproject:
 			project_id = str(uuid.uuid1())
-			params     = [project_id, repo, account, project]
+			params     = [project_id, repo, account, project, default_branch]
 			if 'mysql' == gbconfig.get('database', 'database'):
-				mysqlcur.execute("INSERT INTO projects (project_id, repo, account, project) VALUES (%s, %s, %s, %s);", params)
+				mysqlcur.execute("INSERT INTO projects (project_id, repo, account, project, default_branch) VALUES (%s, %s, %s, %s, %s);", params)
 			else:
-				cur.execute("INSERT INTO projects (project_id, repo, account, project) VALUES (?, ?, ?, ?);", params)
+				cur.execute("INSERT INTO projects (project_id, repo, account, project, default_branch) VALUES (?, ?, ?, ?, ?);", params)
 
 		# update database with new scan info
 		params  = [scan_id, project_id]
@@ -342,11 +304,12 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none'):
 		db.commit()
 		db.close()
 
-	html_report(scan_id)
+	if not no_reports:
+		html_report(scan_id)
 
 	return scan_id
 
-def repo_scan(repo, account, force):
+def repo_scan(repo, account, force, no_reports):
 	"""
 	Check code out from a remote repo and scan import
 	"""
@@ -376,14 +339,37 @@ def repo_scan(repo, account, force):
 			logging.info('Calling github api for ' + api_url)
 			while count < max_tries:
 				try:
-					data = json.load(urllib2.urlopen(api_url + '?page=' + str(page) + '&per_page=100'))
+					r    = requests.get(api_url + '?page=' + str(page) + '&per_page=100')
+					
+					if 200 != r.status_code:
+						raise ValueError('Request failed!', r.status_code)
+
+					data = r.json()
 
 					# no exceptions so break out of while loop
 					break
-				except urllib2.URLError as e:
+				
+				except ValueError as e:
+					count = count + 1
+					logging.debug(str(e.args))
+					time.sleep(5)
+
+				except requests.ConnectionError as e:
 					count = count + 1
 					if count <= max_tries:
-						logging.warning('Error calling github api (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
+						logging.warning('Error retreiving grep rules: ConnectionError (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
+						time.sleep(3) # take a break, throttle a bit
+				
+				except requests.HTTPError as e:
+					count = count + 1
+					if count <= max_tries:
+						logging.warning('Error retreiving grep rules: HTTPError (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
+						time.sleep(3) # take a break, throttle a bit
+			
+				except requests.Timeout as e:
+					count = count + 1
+					if count <= max_tries:
+						logging.warning('Error retreiving grep rules: Timeout (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
 						time.sleep(3) # take a break, throttle a bit
 
 				except Exception as e:
@@ -399,12 +385,13 @@ def repo_scan(repo, account, force):
 			while len(data):
 				print 'Get page: ' + str(page)
 				for i in range(0, len(data)):
-					do_scan      = True
-					project_name = data[i]["name"]
-					last_scanned = last_scan(repo, account, project_name)
-					last_changed = datetime.datetime.strptime(data[i]['pushed_at'], "%Y-%m-%dT%H:%M:%SZ")
-					checkout_url = 'https://github.com/' + account + '/' + project_name + '.git'
-					cmd          = 'git'
+					do_scan        = True
+					project_name   = data[i]["name"]
+					default_branch = data[i]["default_branch"]
+					last_scanned   = last_scan(repo, account, project_name)
+					last_changed   = datetime.datetime.strptime(data[i]['pushed_at'], "%Y-%m-%dT%H:%M:%SZ")
+					checkout_url   = 'https://github.com/' + account + '/' + project_name + '.git'
+					cmd            = 'git'
 
 					print project_name + ' last changed on ' + str(last_changed) + ' and last scanned on ' + str(last_scanned)
 
@@ -419,17 +406,19 @@ def repo_scan(repo, account, force):
 					if True == do_scan:
 						checkout_code(cmd, checkout_url, account, project_name)
 						# scan local files
-						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account + '/' + project_name, repo, account, project_name)
+						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account + '/' + project_name, repo, account, project_name, default_branch, no_reports)
 						# clean up because of big projects and stuff
 						call(['rm', '-rf', os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account + '/' + project_name])
 						
-				
+				# get next page of projects
 				page += 1
-				data = json.load(urllib2.urlopen(api_url + '?page=' + str(page) + '&per_page=100')) # get next page of projects
+				r    = requests.get(api_url + '?page=' + str(page) + '&per_page=100')
+				data = r.json()
 
 		elif 'bitbucket' == repo:
 			# call api_url
-			data = json.load(urllib2.urlopen(api_url))
+			r    = requests.get(api_url)
+			data = r.json()
 			
 			for j in range(0, len(data["values"])):
 				value =  data["values"][j]
@@ -452,17 +441,23 @@ def repo_scan(repo, account, force):
 					if True == do_scan:
 						checkout_code(cmd, checkout_url, account, project_name)
 						# scan local files
-						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account + '/' + project_name, repo, account, project_name)
+						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account + '/' + project_name, repo, account, project_name, 'none', no_reports)
 
 		elif 'sourceforge' == repo:
+			message = 'Support for sourceforge removed because of http://seclists.org/nmap-dev/2015/q2/194. You should move your project to another hosting site, such as GitHub or BitBucket.'
+			logging.debug(message)
+			print message
+			"""
 			# call api_url
-			data = json.load(urllib2.urlopen(api_url))
+			r    = requests.get(api_url)
+			data = r.json()
 			
 			for i in data['projects']:
 				do_scan      = True
 				project_name = i["url"].replace('/p/', '').replace('/', '')
 				cmd          = None 
-				project_json = json.load(urllib2.urlopen('https://sourceforge.net/rest' + i['url']))
+				r            = requests.get('https://sourceforge.net/rest' + i['url'])
+				project_json = r.json()
 				for j in project_json:
 					for t in project_json['tools']:
 						if 'code' == t['mount_point']:
@@ -490,9 +485,80 @@ def repo_scan(repo, account, force):
 						local_scan(os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account + '/' + project_name, repo, account, project_name)
 					else:
 						print 'No sourceforge repo for ' + account + ' ' + project_name
+			"""
 
 		db.close()
+		# clean up
+		try:
+			shutil.rmtree(os.path.abspath(__file__) + '/remotesrc/' + account)
+		except Exception as e:
+			logging.debug('Error removing directory: ' + str(e))
+		
 		print 'SCAN COMPLETE!'
+
+def download_rules():
+	url     = gbconfig.get('rules', 'url')
+	
+	logging.info('Retreiving rules from ' + url)
+	print 'attempting to retreive rules...'
+	
+	try:
+		# if request fails, try 3 times
+		count     = 0
+		max_tries = 3
+		while count < max_tries:
+			try:
+				headers = {'User-agent': 'GrepBugs for Python (1.0)'}
+				r       = requests.get(url, headers=headers)
+
+				with open(gbfile, 'wb') as jsonfile:
+					jsonfile.write(r.text)
+
+				print 'got rules!'
+
+				# no exceptions so break out of while loop
+				break
+			except requests.ConnectionError as e:
+				count = count + 1
+				if count <= max_tries:
+					logging.warning('Error retreiving grep rules: ConnectionError (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
+					time.sleep(3)
+			
+			except requests.HTTPError as e:
+				count = count + 1
+				if count <= max_tries:
+					logging.warning('Error retreiving grep rules: HTTPError (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
+					time.sleep(3)
+		
+			except requests.Timeout as e:
+				count = count + 1
+				if count <= max_tries:
+					logging.warning('Error retreiving grep rules: Timeout (attempt ' + str(count) + ' of ' + str(max_tries) + '): ' + str(e))
+					time.sleep(3)
+			
+			except Exception as e:
+				print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
+				logging.critical('Unhandled exception: ' + str(e))
+				sys.exit(1)
+
+		if count == max_tries:
+			# method of last resort!
+			print 'attempting download method of last resort...'
+			proc = subprocess.Popen(["which", "wget"], stdout=subprocess.PIPE)
+			out  = proc.communicate()
+			wget = str(out[0]).split("\n")
+			
+			if '' != wget[0].strip():
+				proc = subprocess.Popen([wget[0], "-O", gbfile, url], stdout=subprocess.PIPE)
+				out  = proc.communicate()
+			else:
+				# grep rules were not retrieved, could be working with old rules.
+				logging.debug('Error retreiving grep rules (no more tries left. could be using old grep rules.): ' + str(e))
+
+	except Exception as e:
+		print 'CRITICAL: Unhandled exception occured! Quiters gonna quit! See log file for details.'
+		logging.critical('Unhandled exception: ' + str(e))
+		sys.exit(1)
 
 def checkout_code(cmd, checkout_url, account, project):
 	account_folder = os.path.dirname(os.path.abspath(__file__)) + '/remotesrc/' + account
@@ -509,8 +575,13 @@ def checkout_code(cmd, checkout_url, account, project):
 		# the clone command will be prompted for credentials. The default credentials are intended
 		# to fail auth in this scenario.
 		split_checkout_url = checkout_url.split('://')
+		
+		# repos with large history can take a long time to clone due to the "receiving objects/resolving deltas" 
+		# phase. To help reduce the time it takes to complete cloning they argument --depth=1 will be used. This
+		# should become a command argument to grepbugs.py in the future.
+		
 		print 'git clone...'
-		call(['git', 'clone', split_checkout_url[0] + '://' + args.repo_user + ':' + args.repo_pass + '@' + split_checkout_url[1], account_folder + '/' + project])
+		call(['git', 'clone', '--depth=1', split_checkout_url[0] + '://' + args.repo_user + ':' + args.repo_pass + '@' + split_checkout_url[1], account_folder + '/' + project])
 	elif 'svn' == cmd:
 		# need to do a lot of craziness for svn, no wonder people use git now.
 		print 'svn checkout...'
@@ -716,16 +787,9 @@ def html_report(scan_id):
 				html += '	<div id="r' + str(r[3]) + '" style="display:none;margin-left:15px;">' + "\n" # description
 				html += '		<div class="r"><pre>' +  cgi.escape(r[1]) + '</pre></div>' + "\n" #regex
 
-			# determine the number of occurrences of account in the path, set begin to the position to the last occurrence
-			account_occurrences = r[4].count(row[1])
-			begin               = 0			
-			for occurance in range(0, account_occurrences):
-				begin = r[4].index(row[1], begin)
-				if(account_occurrences > 1 and occurance + 1 != account_occurrences):
-					begin = begin + 1
-			
 			# include repo/account/project/file link
 			if 'github' == row[0]:
+				begin       = r[4].index('GrepBugs/remotesrc') + len('GrepBugs/remotesrc') # determine beginning position of repo path 
 				file_link   = '<a href="https://github.com/' + r[4][r[4].index(row[1], begin):].replace(row[1] + '/' + row[2] + '/', row[1] + '/' + row[2] + '/blob/master/') + '#L' + str(r[5]) + '" target="_new">' + str(r[5]) + '</a>'
 				ltrim_by    = row[1]
 				ltrim_begin = begin
@@ -771,6 +835,7 @@ group.add_argument('-r', help='specify a repo to scan (e.g. github, bitbucket, o
 group.add_argument('-a', help='specify an account for the specified repo.')
 group.add_argument('-repo_user', help='specify a username to be used in authenticating to the specified repo (default: grepbugs).', default='grepbugs')
 group.add_argument('-repo_pass', help='specify a password to be used in authenticating to the specified repo (default: grepbugs).', default='grepbugs')
+parser.add_argument('-no_reports', help='Do not generate reports, only store results in the database.', default=False, action="store_true")
 
 args = parser.parse_args()
 
@@ -787,4 +852,4 @@ elif None != args.r:
 		sys.exit(1)
 
 	print 'scan repo: ' + args.r + ' ' + args.a
-	scan_id = repo_scan(args.r, args.a, args.f)
+	scan_id = repo_scan(args.r, args.a, args.f, args.no_reports)
