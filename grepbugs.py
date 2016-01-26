@@ -30,8 +30,13 @@ logfile = os.path.dirname(os.path.abspath(__file__)) + '/log/grepbugs.log'
 gbconfig  = ConfigParser.ConfigParser()
 gbconfig.read(cfgfile)
 
-# determine which grep binary to use
+# determine which binary executables to use
 grepbin = gbconfig.get('grep', 'binary')
+clocbin = gbconfig.get('cloc', 'binary')
+
+tmpdir = gbconfig.get('paths', 'tmpdir')
+tabsext = gbconfig.get('output', 'tabsext')
+
 
 # BSD and OS X grep do not support -P; change this to path to GNU grep; e.g. /usr/local/bin/grep, ggrep, etc.
 # http://www.heystephenwood.com/2013/09/install-gnu-grep-on-mac-osx.html
@@ -221,7 +226,7 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none', defaul
 
 	# get cloc extensions and create extension array
 	clocext  = ''
-	proc     = subprocess.Popen(["cloc", "--show-ext"], stdout=subprocess.PIPE)
+	proc     = subprocess.Popen([clocbin, "--show-ext"], stdout=subprocess.PIPE)
 	ext      = proc.communicate()
 	extarray = str(ext[0]).split("\n")
 	
@@ -708,7 +713,7 @@ def html_report(scan_id):
 	for row in rows:
 		print 'writing report...'
 		htmlfile = os.path.dirname(os.path.abspath(__file__)) + '/out/' + row[0] + '.' + row[1] + '.' + row[2].replace("/", "_") + '.' + row[3] + '.html'
-		tabfile  = os.path.dirname(os.path.abspath(__file__)) + '/out/' + row[0] + '.' + row[1] + '.' + row[2].replace("/", "_") + '.' + row[3] + '.tabs.csv'
+		tabfile  = os.path.dirname(os.path.abspath(__file__)) + '/out/' + row[0] + '.' + row[1] + '.' + row[2].replace("/", "_") + '.' + row[3] + tabsext
 
 		if not os.path.exists(os.path.dirname(htmlfile)):
 			os.makedirs(os.path.dirname(htmlfile))
@@ -799,6 +804,13 @@ def html_report(scan_id):
 				ltrim_begin = 0
 
 			html += '		<pre class="f"><span>' + r[4][r[4].index(ltrim_by, ltrim_begin):] + ' ' + file_link + ':</span> &nbsp; ' + cgi.escape(r[6]) + '</pre>' + "\n" # finding
+
+			try:
+				html += '                              <pre class="f"><span>' + r[4][r[4].index(ltrim_by, ltrim_begin):] + ' ' + file_link + ':</span> &nbsp; ' + "\n                                       " + cgi.escape(r[6]) + '</pre>' + "\n" # finding
+
+			except ValueError:
+				html += 'Exception ValueError: Got a value error on a substring for ' + r[4] + '/' + r[5] + "\n"
+				logging.error('Using grep binary ' + grepbin)
 
 			count   += 1
 			language = r[0]
