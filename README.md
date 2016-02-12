@@ -18,6 +18,9 @@ tab-delimited file with a subset of the information is also created.
 
 Example reports: https://www.grepbugs.com/reports
 
+### Offline Usage
+If you need to run grepbugs when there is not Internet connection then you should, before going offline, download the rules file from https://grepbugs.com/rules and save it to `GrepBugs/data/grepbugs.json`.
+
 ## Configuration
 The `etc/grepbugs.cfg` file can be used to configure:
 - MySQL database (for storing scan results)
