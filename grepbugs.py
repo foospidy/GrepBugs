@@ -158,7 +158,7 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none', defaul
 		f = open(clocsql, 'r')
 		cur.executescript(f.read())
 		db.commit()
-		f.close
+		f.close()
 		os.remove(clocsql)
 
 	except Exception as e:
