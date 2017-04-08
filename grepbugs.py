@@ -99,9 +99,9 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none', defaul
 	# prep db for capturing scan results
 	try:
 		# clean database
-		cur.execute("DROP TABLE IF EXISTS metadata;");
-		cur.execute("DROP TABLE IF EXISTS t;");
-		cur.execute("VACUUM");
+		cur.execute("DROP TABLE IF EXISTS metadata;")
+		cur.execute("DROP TABLE IF EXISTS t;")
+		cur.execute("VACUUM")
 
 		# update database with new project info
 		if 'none' == project:
