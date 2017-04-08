@@ -799,7 +799,7 @@ def html_report(scan_id):
 				ltrim_by    = row[1]
 				ltrim_begin = begin
 			else:
-				file_link   = str(r[5]);
+				file_link   = str(r[5])
 				ltrim_by    = row[2]
 				ltrim_begin = 0
 
