@@ -724,7 +724,7 @@ def html_report(scan_id):
 			link             = '(<a href="' + project_base_url + '" target="_new">' + project_base_url + '</a>)'
 		else:
 			project_base_url = ''
-			link             = '';
+			link             = ''
 
 		o = open(htmlfile, 'w')
 		o.write("""<!DOCTYPE html><head>
