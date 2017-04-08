@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# GrepBugs Copyright (c) 2014-2015 GrepBugs.com
+# GrepBugs Copyright (c) 2014-2017 GrepBugs.com
 #
 # GrepBugs is licensed under GPL v2.0 or later; please see the main
 # LICENSE file in the installation folder for more information.
