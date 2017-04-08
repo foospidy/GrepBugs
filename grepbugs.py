@@ -190,7 +190,7 @@ def local_scan(srcdir, repo='none', account='local_scan', project='none', defaul
 	cloctxt += '{0:20}  {1:>12}  {2:>13} {3:>14} {4:>14}'.format('Sum', str(sum_files), str(sum_blank), str(sum_comment), str(sum_code)) + "\n"
 	cloctxt += '-------------------------------------------------------------------------------' + "\n"
 
-	# execute clock again to get txt output
+	# execute cloc again to get txt output
 	try:
 		params = [cloctxt, scan_id]
 		if 'mysql' == gbconfig.get('database', 'database'):
